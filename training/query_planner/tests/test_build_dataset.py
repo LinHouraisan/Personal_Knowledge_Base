@@ -2,7 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from training.query_planner.build_dataset import ALLOWED_INTENTS, build_dataset
+from training.query_planner.build_dataset import build_dataset
 
 
 def read_rows(output: Path) -> dict[str, list[dict]]:
@@ -27,7 +27,8 @@ def test_build_dataset_is_valid_and_group_split(tmp_path: Path):
     plans = [json.loads(row["output"]) for row in rows]
 
     assert stats["total"] >= 6
-    assert all(plan["intent"] in ALLOWED_INTENTS for plan in plans)
+    assert all(plan["intent"] in {"search_notes", "open_note", "find_related_notes"} for plan in plans)
+    assert all(plan["query"].strip() for plan in plans)
     assert all(1 <= plan["top_k"] <= 5 for plan in plans)
     assert all(row["meta"]["source"] == "synthetic-template" for row in rows)
     assert {row["meta"]["group"] for row in rows} == {"技术/RAG.md"}
@@ -59,3 +60,21 @@ def test_build_dataset_is_reproducible_and_declares_alpaca_mapping(tmp_path: Pat
         "query": "input",
         "response": "output",
     }
+
+
+def test_build_dataset_normalizes_null_and_scalar_tags(tmp_path: Path):
+    """Null tags fall back to the title and scalar tags become one whole tag."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "null.md").write_text("---\ntags:\n---\n# Null tag", encoding="utf-8")
+    (vault / "number.md").write_text("---\ntags: 42\n---\n# Number tag", encoding="utf-8")
+
+    output = tmp_path / "out"
+    build_dataset(vault, output)
+    rows = [row for split_rows in read_rows(output).values() for row in split_rows]
+    plans_by_prompt = {
+        (row["meta"]["group"], row["input"]): json.loads(row["output"]) for row in rows
+    }
+
+    assert plans_by_prompt[("null.md", "查找标签Null tag的笔记")]["query"] == "Null tag"
+    assert plans_by_prompt[("number.md", "查找标签42的笔记")]["query"] == "42"

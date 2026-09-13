@@ -55,7 +55,9 @@ def _note_details(path: Path, vault: Path) -> tuple[str, str, str, str]:
     heading = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
     title = heading.group(1).strip() if heading else path.stem
     tags = frontmatter.get("tags", [])
-    if isinstance(tags, str):
+    if tags is None:
+        tags = []
+    elif not isinstance(tags, list):
         tags = [tags]
     tag = next((str(value).strip() for value in tags if str(value).strip()), title)
     link = next((value.strip() for value in re.findall(r"\[\[([^\]|#]+)", text) if value.strip()), title)
