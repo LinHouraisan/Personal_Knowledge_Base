@@ -16,7 +16,7 @@
 
 ## 本地轻量检查
 
-先激活包含项目依赖的 Python 环境，然后运行：
+脚本默认依次选择仓库 `.venv/bin/python`、Windows `.venv/Scripts/python.exe`，最后才使用 `PATH` 中的 `python`。需要覆盖自动选择时，显式设置 `PYTHON=/path/to/python`，该值具有最高优先级。然后运行：
 
 ```bash
 bash training/query_planner/train_autodl.sh --check-only

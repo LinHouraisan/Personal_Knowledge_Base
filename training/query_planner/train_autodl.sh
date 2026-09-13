@@ -3,7 +3,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON:-python}"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+if [[ -n "${PYTHON:-}" ]]; then
+  PYTHON_BIN="$PYTHON"
+  PYTHON_SOURCE="PYTHON 环境变量"
+elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+  PYTHON_SOURCE="仓库 .venv/bin/python"
+elif [[ -x "$REPO_ROOT/.venv/Scripts/python.exe" ]]; then
+  PYTHON_BIN="$REPO_ROOT/.venv/Scripts/python.exe"
+  PYTHON_SOURCE="仓库 .venv/Scripts/python.exe"
+else
+  PYTHON_BIN="python"
+  PYTHON_SOURCE="PATH"
+fi
 LLAMAFACTORY_CLI="${LLAMAFACTORY_CLI:-llamafactory-cli}"
 NVIDIA_SMI="${NVIDIA_SMI:-nvidia-smi}"
 TEE_COMMAND="${QUERY_PLANNER_TEE_COMMAND:-tee}"
@@ -16,7 +29,15 @@ elif [[ $# -ne 0 ]]; then
   exit 2
 fi
 
-command -v "$PYTHON_BIN" >/dev/null 2>&1 || { echo "缺少 Python：$PYTHON_BIN" >&2; exit 1; }
+PYTHON_COMMAND="$(command -v "$PYTHON_BIN" 2>/dev/null)" || {
+  echo "Python 解释器不可用（$PYTHON_SOURCE）：$PYTHON_BIN；可设置 PYTHON 显式指定。" >&2
+  exit 1
+}
+if [[ ! -x "$PYTHON_COMMAND" ]]; then
+  echo "Python 解释器不可执行（$PYTHON_SOURCE）：$PYTHON_COMMAND" >&2
+  exit 1
+fi
+PYTHON_BIN="$PYTHON_COMMAND"
 
 resolve_path() {
   "$PYTHON_BIN" - "$1" <<'PY'
@@ -93,7 +114,7 @@ echo "==> 1/3 按固定 seed 重建模板合成数据"
   --seed 8503
 
 echo "==> 2/3 校验 LLaMA-Factory 注册和 JSON 输出契约"
-DATA_SUMMARY="$("$PYTHON_BIN" - "$CONFIG_PATH" "$DATA_DIR" "$SCRIPT_DIR/../.." <<'PY'
+DATA_SUMMARY="$("$PYTHON_BIN" - "$CONFIG_PATH" "$DATA_DIR" "$REPO_ROOT" <<'PY'
 from pathlib import Path
 import sys
 import yaml

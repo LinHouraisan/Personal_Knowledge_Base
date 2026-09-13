@@ -230,6 +230,60 @@ def test_check_only_rebuilds_and_validates_data_with_portable_paths(tmp_path: Pa
     assert not (home / "saves" / "query-planner").exists()
 
 
+def test_check_only_prefers_repository_venv_over_broken_path_python(tmp_path: Path):
+    """Removing PYTHON must not let a broken PATH interpreter shadow the repo venv."""
+    repo_python = next(
+        (
+            candidate
+            for candidate in (ROOT / ".venv" / "bin" / "python", ROOT / ".venv" / "Scripts" / "python.exe")
+            if candidate.is_file()
+        ),
+        None,
+    )
+    if repo_python is None:
+        pytest.skip("仓库没有可用于验证自动选择的 .venv Python")
+
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_vault(home / "vault")
+    _write_config(home / "config.yaml")
+    bad_bin = tmp_path / "bad-bin"
+    bad_bin.mkdir()
+    marker = tmp_path / "bad-python-used"
+    bad_python = bad_bin / "python"
+    bad_python.write_text(
+        "#!/usr/bin/env bash\nprintf 'used' > \"$BAD_PYTHON_MARKER\"\nexit 91\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    bad_python.chmod(0o755)
+    env = {**os.environ}
+    env.pop("PYTHON", None)
+    env.update(
+        {
+            "HOME": str(home),
+            "USERPROFILE": str(home),
+            "QUERY_PLANNER_CONFIG": "config.yaml",
+            "QUERY_PLANNER_VAULT": "vault",
+            "BAD_PYTHON_MARKER": marker.as_posix(),
+            "PATH": str(bad_bin) + os.pathsep + env.get("PATH", ""),
+        }
+    )
+
+    result = subprocess.run(
+        [_bash(), SCRIPT.as_posix(), "--check-only"],
+        cwd=home,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "数据校验通过" in result.stdout
+    assert not marker.exists()
+
+
 def test_formal_run_invalidates_stale_completion_before_gpu_check(tmp_path: Path):
     """A prior completion marker must never survive the start of a new failed run."""
     home = tmp_path / "home"
