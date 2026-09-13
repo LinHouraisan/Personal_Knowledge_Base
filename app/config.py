@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     chat_api_key: SecretStr | None = None
     chat_model: str = "deepseek-chat"
 
+    planner_enabled: bool = False
+    planner_base_url: str = "http://127.0.0.1:8001/v1"
+    planner_api_key: SecretStr | None = None
+    planner_model: str = "qwen2.5-3b-query-planner"
+    planner_timeout_seconds: float = 10.0
+
     embedding_base_url: str = "http://127.0.0.1:11434/v1"
     embedding_api_key: SecretStr | None = None
     embedding_model: str = "bge-m3"
