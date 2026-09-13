@@ -32,12 +32,27 @@ def split_name(note_key: str) -> str:
     return "test" if bucket == 0 else "validation" if bucket == 1 else "train"
 
 
-def row(prompt: str, intent: str, query: str, top_k: int, note_key: str) -> dict:
+def _note_id(note_key: str) -> str:
+    return hashlib.sha256(note_key.encode("utf-8")).hexdigest()[:16]
+
+
+def row(
+    prompt: str,
+    intent: str,
+    query: str,
+    top_k: int,
+    note_key: str,
+    target_note_ids: list[str],
+) -> dict:
     return {
         "instruction": INSTRUCTION,
         "input": prompt,
         "output": {"intent": intent, "query": query.strip(), "top_k": top_k},
-        "meta": {"group": note_key, "source": "synthetic-template"},
+        "meta": {
+            "group": note_key,
+            "source": "synthetic-template",
+            "target_note_ids": target_note_ids,
+        },
     }
 
 
@@ -64,14 +79,57 @@ def _note_details(path: Path, vault: Path) -> tuple[str, str, str, str]:
     return note_key, title, tag, link
 
 
-def _template_rows(note_key: str, title: str, tag: str, link: str) -> list[dict]:
+def _template_rows(
+    note_key: str,
+    title: str,
+    tag: str,
+    link: str,
+    related_note_key: str | None,
+) -> list[dict]:
+    own_target = [_note_id(note_key)]
+    related_target = [_note_id(related_note_key)] if related_note_key else []
     return [
-        row(f"搜索与{title}相关的笔记", "search_notes", title, 3, note_key),
-        row(f"查找标签{tag}的笔记", "search_notes", tag, 3, note_key),
-        row(f"打开{title}", "open_note", note_key, 1, note_key),
-        row(f"找出与{title}关联的笔记", "find_related_notes", note_key, 5, note_key),
-        row(f"修改{title}并写入知识库", "search_notes", title, 3, note_key),
-        row(f"检索{link}的相关资料", "search_notes", link, 3, note_key),
+        row(
+            f"搜索与{title}相关的笔记",
+            "search_notes",
+            title,
+            3,
+            note_key,
+            own_target,
+        ),
+        row(
+            f"查找标签{tag}的笔记",
+            "search_notes",
+            tag,
+            3,
+            note_key,
+            own_target,
+        ),
+        row(f"打开{title}", "open_note", note_key, 1, note_key, own_target),
+        row(
+            f"找出与{title}关联的笔记",
+            "find_related_notes",
+            note_key,
+            5,
+            note_key,
+            related_target,
+        ),
+        row(
+            f"修改{title}并写入知识库",
+            "search_notes",
+            title,
+            3,
+            note_key,
+            own_target,
+        ),
+        row(
+            f"检索{link}的相关资料",
+            "search_notes",
+            link,
+            3,
+            note_key,
+            related_target or own_target,
+        ),
     ]
 
 
@@ -107,10 +165,22 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 def build_dataset(vault: Path, output: Path, seed: int = 8503) -> dict[str, int]:
     """Create grouped train, validation, and test JSONL files from Markdown notes."""
+    details = [_note_details(path, vault) for path in sorted(vault.rglob("*.md"))]
+    aliases: dict[str, str] = {}
+    for note_key, title, _, _ in details:
+        for alias in (
+            title,
+            Path(note_key).stem,
+            note_key,
+            note_key.removesuffix(".md"),
+        ):
+            aliases.setdefault(alias, note_key)
     source_rows = []
-    for path in sorted(vault.rglob("*.md")):
-        note_key, title, tag, link = _note_details(path, vault)
-        source_rows.extend(_template_rows(note_key, title, tag, link))
+    for note_key, title, tag, link in details:
+        related_note_key = aliases.get(link)
+        if related_note_key == note_key:
+            related_note_key = None
+        source_rows.extend(_template_rows(note_key, title, tag, link, related_note_key))
 
     rows = _validate_and_deduplicate(source_rows)
     random.Random(seed).shuffle(rows)

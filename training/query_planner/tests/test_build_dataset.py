@@ -31,6 +31,12 @@ def test_build_dataset_is_valid_and_group_split(tmp_path: Path):
     assert all(plan["query"].strip() for plan in plans)
     assert all(1 <= plan["top_k"] <= 5 for plan in plans)
     assert all(row["meta"]["source"] == "synthetic-template" for row in rows)
+    assert all(isinstance(row["meta"]["target_note_ids"], list) for row in rows)
+    assert all(
+        len(note_id) == 16
+        for row in rows
+        for note_id in row["meta"]["target_note_ids"]
+    )
     assert {row["meta"]["group"] for row in rows} == {"技术/RAG.md"}
     assert sum(bool(split_rows) for split_rows in rows_by_split.values()) == 1
 
@@ -78,3 +84,19 @@ def test_build_dataset_normalizes_null_and_scalar_tags(tmp_path: Path):
 
     assert plans_by_prompt[("null.md", "查找标签Null tag的笔记")]["query"] == "Null tag"
     assert plans_by_prompt[("number.md", "查找标签42的笔记")]["query"] == "42"
+
+
+def test_build_dataset_labels_related_note_target(tmp_path: Path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "RAG.md").write_text("# RAG\n[[Embedding]]", encoding="utf-8")
+    (vault / "Embedding.md").write_text("# Embedding", encoding="utf-8")
+
+    output = tmp_path / "out"
+    build_dataset(vault, output)
+    rows = [row for split_rows in read_rows(output).values() for row in split_rows]
+    related = next(row for row in rows if row["input"] == "找出与RAG关联的笔记")
+
+    assert related["meta"]["target_note_ids"] == [
+        hashlib.sha256("Embedding.md".encode("utf-8")).hexdigest()[:16]
+    ]

@@ -47,3 +47,55 @@ bash training/query_planner/train_autodl.sh
 本入口有意只接受 LLaMA-Factory 默认生成的 `adapter_model.safetensors`，不接受旧式 `adapter_model.bin`。训练命令成功后仍会用 PEFT 解析配置，并用 safetensors 打开非空权重；两项均通过才重新写入完成标志。
 
 默认 Adapter 输出目录为 `training/query_planner/saves/qwen2.5-3b-query-planner/`，日志位于 `training/query_planner/logs/`。这些产物用于后续离线评测，不应提交 Git。
+
+## 基座与 Adapter 离线评测
+
+`evaluate.py` 每次只调用一个 OpenAI-compatible Chat Completions 端点，然后将通过 Schema 校验的计划（或安全回退计划）交给现有 `KnowledgeService` 只读分派。因此 Recall@3 来自实际分派返回的笔记 ID，不是把 gold 计划当成检索命中。
+
+先重新生成带 `target_note_ids` 的固定数据，并确保示例 Vault 已用同一 Embedding 配置建好索引：
+
+```bash
+python training/query_planner/build_dataset.py \
+  --vault sample_vault \
+  --output training/query_planner/data
+```
+
+评测程序会对读入的 `test.jsonl` 字节计算 SHA-256，并与 `manifest.json` 中的同一文件哈希和样本数核对。空数据、哈希不符、样本数不符或端点输出失败时不发布报告。JSON 和 Markdown 报告以可回滚的成对方式发布，避免只留下半套文件。
+
+先单独跑基座模型：
+
+```bash
+export PLANNER_API_KEY='...'
+python -m training.query_planner.evaluate \
+  --base-url http://127.0.0.1:8001/v1 \
+  --model Qwen/Qwen2.5-3B-Instruct \
+  --vault sample_vault \
+  --index data/index.json \
+  --embedding-base-url http://127.0.0.1:11434/v1 \
+  --embedding-model bge-m3 \
+  --output-prefix docs/bench/query-planner-base
+```
+
+再单独启动加载 Adapter 的端点，使用它对外公开的模型名运行：
+
+```bash
+python -m training.query_planner.evaluate \
+  --base-url http://127.0.0.1:8002/v1 \
+  --model qwen2.5-3b-query-planner \
+  --vault sample_vault \
+  --index data/index.json \
+  --embedding-base-url http://127.0.0.1:11434/v1 \
+  --embedding-model bge-m3 \
+  --output-prefix docs/bench/query-planner-lora
+```
+
+Windows PowerShell 用 `$env:PLANNER_API_KEY='...'` 设置环境变量。程序只记录公开模型名、数据哈希、manifest seed/样本数、逐条原始输出、解析/回退结果、检索 ID 和延迟；不记录 API Key 或请求头。
+
+指标口径固定如下：
+
+- Schema 合法率与意图准确率看原始模型输出；非法输出即使回退后恰好选中 gold 意图，也不计正确。
+- 参数约束通过率只检查原始 `query` 和 `top_k`，不因回退值变好。
+- Recall@3 看最终只读分派的前三个去重笔记 ID；没有可靠目标标注的旧数据行不进入 Recall 分母，报告会另记分母样本数。
+- 空集的所有比率定义为 `0.0`，但 CLI 对空测试集直接拒绝发布。
+
+**目前仓库中没有实际跑出的 base 或 Adapter 报告。** 只能比较 `data_sha256`、manifest seed 和样本数完全一致的两份报告；不得直接比较不同测试集的数字，也不得把未运行状态写成已完成的训练收益。
