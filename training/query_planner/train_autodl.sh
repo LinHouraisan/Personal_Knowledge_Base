@@ -93,51 +93,23 @@ echo "==> 1/3 按固定 seed 重建模板合成数据"
   --seed 8503
 
 echo "==> 2/3 校验 LLaMA-Factory 注册和 JSON 输出契约"
-DATA_SUMMARY="$("$PYTHON_BIN" - "$CONFIG_PATH" "$DATA_DIR" <<'PY'
+DATA_SUMMARY="$("$PYTHON_BIN" - "$CONFIG_PATH" "$DATA_DIR" "$SCRIPT_DIR/../.." <<'PY'
 from pathlib import Path
-import json
 import sys
 import yaml
 
+sys.path.insert(0, str(Path(sys.argv[3]).resolve()))
+try:
+    from training.query_planner.build_dataset import validate_training_data
+except ImportError as exc:
+    raise SystemExit(f"缺少 PlannerDecision Schema 依赖：{exc}") from exc
+
 config = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
 data_dir = Path(sys.argv[2])
-info_path = data_dir / "dataset_info.json"
-manifest_path = data_dir / "manifest.json"
-if not info_path.is_file() or not manifest_path.is_file():
-    raise SystemExit("数据构建后缺少 dataset_info.json 或 manifest.json")
-info = json.loads(info_path.read_text(encoding="utf-8"))
-manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-if manifest.get("source") != "synthetic-template":
-    raise SystemExit("manifest 未标明 synthetic-template 来源")
-
-allowed = {"search_notes", "open_note", "find_related_notes"}
-expected_columns = {"prompt": "instruction", "query": "input", "response": "output"}
-counts = {}
-for config_key in ("dataset", "eval_dataset"):
-    name = config[config_key]
-    registration = info.get(name)
-    if not isinstance(registration, dict) or registration.get("columns") != expected_columns:
-        raise SystemExit(f"dataset_info.json 注册不匹配：{name}")
-    path = data_dir / registration.get("file_name", "")
-    if not path.is_file():
-        raise SystemExit(f"数据集文件不存在：{path}")
-    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    if not rows:
-        raise SystemExit(f"数据集不能为空：{path}")
-    for line_number, row in enumerate(rows, 1):
-        if any(not isinstance(row.get(field), str) or not row[field].strip() for field in ("instruction", "input", "output")):
-            raise SystemExit(f"{path}:{line_number} 缺少非空 Alpaca 字段")
-        try:
-            plan = json.loads(row["output"])
-        except json.JSONDecodeError as exc:
-            raise SystemExit(f"{path}:{line_number} 的 output 不是 JSON 字符串：{exc}") from exc
-        if set(plan) != {"intent", "query", "top_k"}:
-            raise SystemExit(f"{path}:{line_number} 的查询计划字段不受限")
-        if plan["intent"] not in allowed or not isinstance(plan["query"], str) or not plan["query"].strip():
-            raise SystemExit(f"{path}:{line_number} 的查询计划内容无效")
-        if not isinstance(plan["top_k"], int) or isinstance(plan["top_k"], bool) or not 1 <= plan["top_k"] <= 5:
-            raise SystemExit(f"{path}:{line_number} 的 top_k 越界")
-    counts[name] = len(rows)
+try:
+    counts = validate_training_data(config, data_dir)
+except (OSError, ValueError) as exc:
+    raise SystemExit(str(exc)) from exc
 print(f"train={counts[config['dataset']]} validation={counts[config['eval_dataset']]}")
 PY
 )"

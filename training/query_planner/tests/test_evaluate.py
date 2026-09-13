@@ -7,6 +7,7 @@ import pytest
 import httpx
 
 from training.query_planner.evaluate import (
+    collect_observations,
     load_verified_test_data,
     OpenAIChatEndpoint,
     publish_report_pair,
@@ -100,6 +101,32 @@ def test_score_rows_uses_real_retrieval_results_and_explicit_recall_denominator(
     assert report.recall_sample_count == 1
     assert report.items[0].target_hit is False
     assert report.items[1].target_hit is None
+
+
+@pytest.mark.asyncio
+async def test_recall_at_3_deduplicates_the_complete_retrieval_in_first_seen_order():
+    """Truncating before deduplication must not hide a third unique hit."""
+    row = _row(targets=["C"])
+
+    class FakeEndpoint:
+        async def complete(self, question: str) -> str:
+            return '{"intent":"search_notes","query":"RAG","top_k":3}'
+
+    class FakeService:
+        async def search(self, query: str, top_k: int):
+            return [SimpleNamespace(note_id=value) for value in ["A", "A", "B", "C"]]
+
+    outputs, retrieved, latencies = await collect_observations(
+        [row], FakeEndpoint(), FakeService()
+    )
+    report = score_rows(
+        [row], outputs, retrieved_note_ids=retrieved, latencies_ms=latencies
+    )
+
+    assert retrieved == [["A", "A", "B", "C"]]
+    assert report.recall_at_3 == 1.0
+    assert report.items[0].retrieved_note_ids == ["A", "B", "C"]
+    assert report.items[0].target_hit is True
 
 
 def test_old_row_without_explicit_targets_is_excluded_from_recall():

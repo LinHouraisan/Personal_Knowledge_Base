@@ -310,7 +310,7 @@ async def collect_observations(
             sources = []
         latencies.append((time.perf_counter() - started) * 1000)
         outputs.append(raw)
-        retrieved.append([source.note_id for source in sources[:3]])
+        retrieved.append([source.note_id for source in sources])
     return outputs, retrieved, latencies
 
 

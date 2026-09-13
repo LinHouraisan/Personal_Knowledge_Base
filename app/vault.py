@@ -42,11 +42,13 @@ def _split_frontmatter(raw: str) -> tuple[dict[str, object], str]:
 
 def _frontmatter_tags(frontmatter: dict[str, object]) -> list[str]:
     value = frontmatter.get("tags", [])
+    if value is None:
+        return []
     if isinstance(value, str):
         return [item.strip().lstrip("#") for item in value.split(",")]
     if isinstance(value, list):
         return [str(item).strip().lstrip("#") for item in value]
-    return []
+    return [str(value).strip().lstrip("#")]
 
 
 def parse_note(vault_root: Path, path: Path) -> VaultNote:
@@ -88,7 +90,13 @@ def scan_vault(vault_root: Path) -> list[VaultNote]:
         relative_parts = path.relative_to(root).parts[:-1]
         if any(part.startswith(".") or part in IGNORED_DIRECTORIES for part in relative_parts):
             continue
-        notes.append(parse_note(root, path))
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root):
+            continue
+        resolved_parts = resolved.relative_to(root).parts[:-1]
+        if any(part.startswith(".") or part in IGNORED_DIRECTORIES for part in resolved_parts):
+            continue
+        notes.append(parse_note(root, resolved))
     return notes
 
 

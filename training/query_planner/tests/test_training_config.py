@@ -9,7 +9,7 @@ import textwrap
 import pytest
 import yaml
 
-from training.query_planner.build_dataset import build_dataset
+from training.query_planner.build_dataset import build_dataset, validate_training_data
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -58,6 +58,42 @@ def _write_vault(vault: Path) -> None:
     vault.mkdir()
     (vault / "RAG.md").write_text("# RAG\n[[向量索引]]\n", encoding="utf-8")
     (vault / "N4.md").write_text("# 验证集笔记\n", encoding="utf-8")
+
+
+def _write_training_contract(data_dir: Path, plan: dict) -> dict:
+    data_dir.mkdir()
+    row = {
+        "instruction": "只输出 JSON",
+        "input": "查找 RAG",
+        "output": json.dumps(plan, ensure_ascii=False),
+    }
+    line = json.dumps(row, ensure_ascii=False) + "\n"
+    for name in ("train.jsonl", "validation.jsonl"):
+        (data_dir / name).write_text(line, encoding="utf-8")
+    (data_dir / "dataset_info.json").write_text(
+        json.dumps(
+            {
+                "query_planner_train": {
+                    "file_name": "train.jsonl",
+                    "formatting": "alpaca",
+                    "columns": {"prompt": "instruction", "query": "input", "response": "output"},
+                },
+                "query_planner_validation": {
+                    "file_name": "validation.jsonl",
+                    "formatting": "alpaca",
+                    "columns": {"prompt": "instruction", "query": "input", "response": "output"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data_dir / "manifest.json").write_text(
+        json.dumps({"source": "synthetic-template"}), encoding="utf-8"
+    )
+    return {
+        "dataset": "query_planner_train",
+        "eval_dataset": "query_planner_validation",
+    }
 
 
 def _write_fake_runtime(home: Path, *, cli_source: str) -> tuple[Path, Path, Path]:
@@ -141,6 +177,24 @@ def test_lora_config_matches_query_planner_dataset_contract(tmp_path: Path):
     train_row = json.loads((data_dir / "train.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert isinstance(train_row["output"], str)
     assert set(json.loads(train_row["output"])) == {"intent", "query", "top_k"}
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        {"intent": "search_notes", "query": "长" * 201, "top_k": 3},
+        {"intent": "search_notes", "query": "RAG", "top_k": 3, "extra": True},
+        {"intent": "search_notes", "query": "RAG", "top_k": True},
+    ],
+    ids=["query-too-long", "extra-field", "bool-top-k"],
+)
+def test_training_preflight_rejects_gold_outside_runtime_schema(tmp_path: Path, plan: dict):
+    """Weakening the preflight below PlannerDecision's contract must fail."""
+    data_dir = tmp_path / "data"
+    config = _write_training_contract(data_dir, plan)
+
+    with pytest.raises(ValueError, match="PlannerDecision"):
+        validate_training_data(config, data_dir)
 
 
 @pytest.mark.parametrize("config_ref", ["config.yaml", "~/config.yaml"])

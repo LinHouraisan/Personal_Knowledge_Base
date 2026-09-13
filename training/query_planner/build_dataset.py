@@ -6,25 +6,19 @@ import argparse
 import hashlib
 import json
 import random
-import re
+import sys
 from pathlib import Path
-from typing import Literal
 
-import yaml
-from pydantic import BaseModel, ConfigDict, Field
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from app.planner import PlannerDecision
+from app.vault import scan_vault
 
 
 ALLOWED_INTENTS = {"search_notes", "open_note", "find_related_notes"}
 SPLITS = ("train", "validation", "test")
 INSTRUCTION = "将请求转换为只读知识库查询计划，只输出JSON。"
-
-
-class QueryPlan(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    intent: Literal["search_notes", "open_note", "find_related_notes"]
-    query: str = Field(min_length=1)
-    top_k: int = Field(ge=1, le=5)
 
 
 def split_name(note_key: str) -> str:
@@ -44,10 +38,13 @@ def row(
     note_key: str,
     target_note_ids: list[str],
 ) -> dict:
+    plan = PlannerDecision.model_validate(
+        {"intent": intent, "query": query, "top_k": top_k}
+    )
     return {
         "instruction": INSTRUCTION,
         "input": prompt,
-        "output": {"intent": intent, "query": query.strip(), "top_k": top_k},
+        "output": plan.model_dump(),
         "meta": {
             "group": note_key,
             "source": "synthetic-template",
@@ -55,33 +52,6 @@ def row(
             "target_note_ids": target_note_ids,
         },
     }
-
-
-def _note_details(path: Path, vault: Path) -> tuple[str, str, str, list[str]]:
-    text = path.read_text(encoding="utf-8")
-    note_key = path.relative_to(vault).as_posix()
-    frontmatter = {}
-    match = re.match(r"^---\s*\n(.*?)\n---\s*(?:\n|$)", text, re.DOTALL)
-    if match:
-        loaded = yaml.safe_load(match.group(1))
-        if isinstance(loaded, dict):
-            frontmatter = loaded
-        text = text[match.end() :]
-
-    heading = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
-    title = heading.group(1).strip() if heading else path.stem
-    tags = frontmatter.get("tags", [])
-    if tags is None:
-        tags = []
-    elif not isinstance(tags, list):
-        tags = [tags]
-    tag = next((str(value).strip() for value in tags if str(value).strip()), title)
-    links = [
-        value.strip()
-        for value in re.findall(r"\[\[([^\]|#]+)", text)
-        if value.strip()
-    ]
-    return note_key, title, tag, links
 
 
 def _template_rows(
@@ -95,11 +65,14 @@ def _template_rows(
     own_target = [_note_id(note_key)]
     related_targets = [_note_id(target) for target in related_note_keys]
     link_target = [_note_id(link_target_key)] if link_target_key else []
-    return [
+    semantic_title = title.strip()[:200]
+    semantic_tag = tag.strip()[:200]
+    semantic_link = link.strip()[:200]
+    rows = [
         row(
             f"搜索与{title}相关的笔记",
             "search_notes",
-            title,
+            semantic_title,
             3,
             note_key,
             own_target,
@@ -107,24 +80,15 @@ def _template_rows(
         row(
             f"查找标签{tag}的笔记",
             "search_notes",
-            tag,
+            semantic_tag,
             3,
             note_key,
             own_target,
         ),
-        row(f"打开{title}", "open_note", note_key, 1, note_key, own_target),
-        row(
-            f"找出与{title}关联的笔记",
-            "find_related_notes",
-            note_key,
-            5,
-            note_key,
-            related_targets,
-        ),
         row(
             f"修改{title}并写入知识库",
             "search_notes",
-            title,
+            semantic_title,
             3,
             note_key,
             own_target,
@@ -132,12 +96,27 @@ def _template_rows(
         row(
             f"检索{link}的相关资料",
             "search_notes",
-            link,
+            semantic_link,
             3,
             note_key,
             link_target or own_target,
         ),
     ]
+    if len(note_key.strip()) <= 200:
+        rows.extend(
+            [
+                row(f"打开{title}", "open_note", note_key, 1, note_key, own_target),
+                row(
+                    f"找出与{title}关联的笔记",
+                    "find_related_notes",
+                    note_key,
+                    5,
+                    note_key,
+                    related_targets,
+                ),
+            ]
+        )
+    return rows
 
 
 def _validate_and_deduplicate(rows: list[dict]) -> list[dict]:
@@ -147,7 +126,7 @@ def _validate_and_deduplicate(rows: list[dict]) -> list[dict]:
         fingerprint = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         if fingerprint in seen:
             continue
-        QueryPlan.model_validate(item["output"])
+        PlannerDecision.model_validate(item["output"])
         seen.add(fingerprint)
         valid_rows.append(item)
     return valid_rows
@@ -170,9 +149,62 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
 
 
+def validate_training_data(config: dict, data_dir: Path) -> dict[str, int]:
+    """Validate registered Alpaca rows with the runtime planner contract."""
+    info_path = data_dir / "dataset_info.json"
+    manifest_path = data_dir / "manifest.json"
+    if not info_path.is_file() or not manifest_path.is_file():
+        raise ValueError("数据构建后缺少 dataset_info.json 或 manifest.json")
+    info = json.loads(info_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("source") != "synthetic-template":
+        raise ValueError("manifest 未标明 synthetic-template 来源")
+
+    expected_columns = {"prompt": "instruction", "query": "input", "response": "output"}
+    counts: dict[str, int] = {}
+    for config_key in ("dataset", "eval_dataset"):
+        name = config.get(config_key)
+        registration = info.get(name) if isinstance(name, str) else None
+        if not isinstance(registration, dict) or registration.get("columns") != expected_columns:
+            raise ValueError(f"dataset_info.json 注册不匹配：{name}")
+        path = data_dir / str(registration.get("file_name", ""))
+        if not path.is_file():
+            raise ValueError(f"数据集文件不存在：{path}")
+        rows = [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        if not rows:
+            raise ValueError(f"数据集不能为空：{path}")
+        for line_number, item in enumerate(rows, 1):
+            if any(
+                not isinstance(item.get(field), str) or not item[field].strip()
+                for field in ("instruction", "input", "output")
+            ):
+                raise ValueError(f"{path}:{line_number} 缺少非空 Alpaca 字段")
+            try:
+                plan = json.loads(item["output"])
+                PlannerDecision.model_validate(plan)
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"{path}:{line_number} 未通过 PlannerDecision 严格校验"
+                ) from exc
+        counts[name] = len(rows)
+    return counts
+
+
 def build_dataset(vault: Path, output: Path, seed: int = 8503) -> dict[str, int]:
     """Create grouped train, validation, and test JSONL files from Markdown notes."""
-    details = [_note_details(path, vault) for path in sorted(vault.rglob("*.md"))]
+    details = [
+        (
+            note.relative_path,
+            note.title,
+            next((tag for tag in note.tags if tag), note.title),
+            note.links,
+        )
+        for note in scan_vault(vault)
+    ]
     aliases: dict[str, str] = {}
     for note_key, title, _, _ in details:
         for alias in (

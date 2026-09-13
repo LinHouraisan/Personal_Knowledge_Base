@@ -2,6 +2,9 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
+from app.planner import PlannerDecision
 from training.query_planner.build_dataset import build_dataset
 
 
@@ -88,6 +91,75 @@ def test_build_dataset_normalizes_null_and_scalar_tags(tmp_path: Path):
 
     assert plans_by_prompt[("null.md", "查找标签Null tag的笔记")]["query"] == "Null tag"
     assert plans_by_prompt[("number.md", "查找标签42的笔记")]["query"] == "42"
+
+
+def test_build_dataset_uses_runtime_vault_exclusions(tmp_path: Path):
+    """Dataset scanning must not diverge from runtime hidden/trash/attachment rules."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "visible.md").write_text("# 可见笔记\n", encoding="utf-8")
+    for directory in (".private", ".trash", "attachments"):
+        hidden = vault / directory
+        hidden.mkdir()
+        (hidden / "excluded.md").write_text(
+            f"# {directory} excluded\n[[visible]]\n", encoding="utf-8"
+        )
+
+    output = tmp_path / "out"
+    build_dataset(vault, output)
+    rows = [row for split_rows in read_rows(output).values() for row in split_rows]
+
+    assert {row["meta"]["group"] for row in rows} == {"visible.md"}
+    assert all(
+        target == hashlib.sha256("visible.md".encode("utf-8")).hexdigest()[:16]
+        for row in rows
+        for target in row["meta"]["target_note_ids"]
+    )
+    generated = "\n".join(
+        (output / name).read_text(encoding="utf-8")
+        for name in ("train.jsonl", "validation.jsonl", "test.jsonl", "manifest.json")
+    )
+    assert "excluded.md" not in generated
+
+
+def test_build_dataset_skips_symlink_that_resolves_outside_vault(tmp_path: Path):
+    """Resolving an external Markdown symlink must never import outside content."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "visible.md").write_text("# 可见笔记\n", encoding="utf-8")
+    outside = tmp_path / "outside.md"
+    outside.write_text("# 外部秘密\n", encoding="utf-8")
+    try:
+        (vault / "linked-secret.md").symlink_to(outside)
+    except OSError as exc:
+        pytest.skip(f"当前 Windows 权限不能创建 symlink：{exc}")
+
+    output = tmp_path / "out"
+    build_dataset(vault, output)
+    rows = [row for split_rows in read_rows(output).values() for row in split_rows]
+
+    assert {row["meta"]["group"] for row in rows} == {"visible.md"}
+    assert "外部秘密" not in "\n".join(
+        path.read_text(encoding="utf-8") for path in output.iterdir() if path.is_file()
+    )
+
+
+def test_build_dataset_never_writes_gold_rejected_by_runtime_schema(tmp_path: Path):
+    """A 201-character title/tag must be bounded before JSONL is published."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    overlong = "长" * 201
+    (vault / "long.md").write_text(
+        f"---\ntags: [{overlong}]\n---\n# {overlong}\n", encoding="utf-8"
+    )
+
+    output = tmp_path / "out"
+    build_dataset(vault, output)
+    rows = [row for split_rows in read_rows(output).values() for row in split_rows]
+    plans = [PlannerDecision.model_validate(json.loads(row["output"])) for row in rows]
+
+    assert rows
+    assert all(len(plan.query) <= 200 for plan in plans)
 
 
 def test_build_dataset_labels_related_note_target(tmp_path: Path):
