@@ -10,4 +10,6 @@ data/
 !training/query_planner/data/
 training/query_planner/data/*
 !training/query_planner/data/.gitkeep
+training/query_planner/saves/
+training/query_planner/logs/
 private_vault/
