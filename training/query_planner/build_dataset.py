@@ -51,12 +51,13 @@ def row(
         "meta": {
             "group": note_key,
             "source": "synthetic-template",
+            "source_note_id": _note_id(note_key),
             "target_note_ids": target_note_ids,
         },
     }
 
 
-def _note_details(path: Path, vault: Path) -> tuple[str, str, str, str]:
+def _note_details(path: Path, vault: Path) -> tuple[str, str, str, list[str]]:
     text = path.read_text(encoding="utf-8")
     note_key = path.relative_to(vault).as_posix()
     frontmatter = {}
@@ -75,8 +76,12 @@ def _note_details(path: Path, vault: Path) -> tuple[str, str, str, str]:
     elif not isinstance(tags, list):
         tags = [tags]
     tag = next((str(value).strip() for value in tags if str(value).strip()), title)
-    link = next((value.strip() for value in re.findall(r"\[\[([^\]|#]+)", text) if value.strip()), title)
-    return note_key, title, tag, link
+    links = [
+        value.strip()
+        for value in re.findall(r"\[\[([^\]|#]+)", text)
+        if value.strip()
+    ]
+    return note_key, title, tag, links
 
 
 def _template_rows(
@@ -84,10 +89,12 @@ def _template_rows(
     title: str,
     tag: str,
     link: str,
-    related_note_key: str | None,
+    related_note_keys: list[str],
+    link_target_key: str | None,
 ) -> list[dict]:
     own_target = [_note_id(note_key)]
-    related_target = [_note_id(related_note_key)] if related_note_key else []
+    related_targets = [_note_id(target) for target in related_note_keys]
+    link_target = [_note_id(link_target_key)] if link_target_key else []
     return [
         row(
             f"搜索与{title}相关的笔记",
@@ -112,7 +119,7 @@ def _template_rows(
             note_key,
             5,
             note_key,
-            related_target,
+            related_targets,
         ),
         row(
             f"修改{title}并写入知识库",
@@ -128,7 +135,7 @@ def _template_rows(
             link,
             3,
             note_key,
-            related_target or own_target,
+            link_target or own_target,
         ),
     ]
 
@@ -175,14 +182,42 @@ def build_dataset(vault: Path, output: Path, seed: int = 8503) -> dict[str, int]
             note_key.removesuffix(".md"),
         ):
             aliases.setdefault(alias, note_key)
+    note_keys_by_id = {_note_id(note_key): note_key for note_key, _, _, _ in details}
     source_rows = []
-    for note_key, title, tag, link in details:
-        related_note_key = aliases.get(link)
-        if related_note_key == note_key:
-            related_note_key = None
-        source_rows.extend(_template_rows(note_key, title, tag, link, related_note_key))
+    for note_key, title, tag, links in details:
+        related_note_keys = sorted(
+            {aliases[item] for item in links if item in aliases and aliases[item] != note_key}
+        )
+        first_link = links[0] if links else None
+        link_target_key = aliases.get(first_link) if first_link else None
+        if link_target_key == note_key:
+            link_target_key = None
+        link = first_link if link_target_key else title
+        source_rows.extend(
+            _template_rows(
+                note_key,
+                title,
+                tag,
+                link,
+                related_note_keys,
+                link_target_key,
+            )
+        )
 
-    rows = _validate_and_deduplicate(source_rows)
+    dropped_cross_split_targets = 0
+    split_safe_rows = []
+    for item in source_rows:
+        source_split = split_name(item["meta"]["group"])
+        target_splits = {
+            split_name(note_keys_by_id[target])
+            for target in item["meta"]["target_note_ids"]
+        }
+        if any(target_split != source_split for target_split in target_splits):
+            dropped_cross_split_targets += 1
+            continue
+        split_safe_rows.append(item)
+
+    rows = _validate_and_deduplicate(split_safe_rows)
     random.Random(seed).shuffle(rows)
     grouped = {split: [] for split in SPLITS}
     for item in rows:
@@ -213,7 +248,13 @@ def build_dataset(vault: Path, output: Path, seed: int = 8503) -> dict[str, int]
     }
     _write_json(
         output / "manifest.json",
-        {"counts": stats, "files": file_hashes, "seed": seed, "source": "synthetic-template"},
+        {
+            "counts": stats,
+            "dropped_cross_split_targets": dropped_cross_split_targets,
+            "files": file_hashes,
+            "seed": seed,
+            "source": "synthetic-template",
+        },
     )
     return stats
 

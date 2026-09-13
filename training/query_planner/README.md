@@ -10,7 +10,7 @@
 
 ## 数据来源与边界
 
-`build_dataset.py` 从 `sample_vault` 的标题、标签和链接离线生成模板合成数据，以笔记为组切分，固定 seed 为 `8503`。写入 LLaMA-Factory 的 `output` 是 JSON 字符串，注册名与 `data/dataset_info.json` 一致。个人真实 Vault、缓存、模型权重、Adapter、checkpoint 和日志均不提交仓库。
+`build_dataset.py` 从 `sample_vault` 的标题、标签和链接离线生成模板合成数据，固定 seed 为 `8503`。先按 source 笔记稳定切分；若一条样本的显式 target 笔记属于另一 split，整条样本会被丢弃，不会仅清空 target 后保留泄漏 query。`manifest.json` 用 `dropped_cross_split_targets` 记录这一数据损失。失效 wikilink 不会被当成 gold query 或 target，相应检索模板回到已存在的 source 标题。因此一个真实 note ID 无论作为 source 还是 target 都只出现在一个 split。写入 LLaMA-Factory 的 `output` 是 JSON 字符串，注册名与 `data/dataset_info.json` 一致。个人真实 Vault、缓存、模型权重、Adapter、checkpoint 和日志均不提交仓库。
 
 当前仓库只提供可复现的数据、配置和训练入口，**尚未完成真实 LoRA 训练，也没有可用于简历的提升数字**。指标只能来自后续固定测试集生成的 base/Adapter 真实评测报告。
 
@@ -93,9 +93,11 @@ Windows PowerShell 用 `$env:PLANNER_API_KEY='...'` 设置环境变量。程序�
 
 指标口径固定如下：
 
-- Schema 合法率与意图准确率看原始模型输出；非法输出即使回退后恰好选中 gold 意图，也不计正确。
-- 参数约束通过率只检查原始 `query` 和 `top_k`，不因回退值变好。
-- Recall@3 看最终只读分派的前三个去重笔记 ID；没有可靠目标标注的旧数据行不进入 Recall 分母，报告会另记分母样本数。
+- Schema 合法率只表示原始 JSON 能否被目标 `PlannerDecision` Pydantic Schema 严格解析（含 extra、query 长度和 `top_k` 类型/范围）。路径安全是 Schema 之后的运行时检查；因此 Schema 可以合法但仍因不安全 query 而回退。
+- 意图准确率独立比较原始 JSON 对象的 `intent` 与 gold intent；即使 `top_k` 越界或存在 extra 字段，意图仍可单独计对。
+- 参数约束通过率只检查原始 `query` 经 trim 后长度为 1–200，以及 `top_k` 是严格整数且位于 1–5；`extra` 字段不影响该指标，也不因回退值变好。
+- 回退率只使用运行时 `parse_decision` 返回的 `used_fallback`。
+- Recall@3 看最终只读分派的前三个去重笔记 ID；只有显式且经 Vault 校验存在的 `target_note_ids` 才进入分母。旧行缺少该字段或空列表时不从 `meta.group` 推断命中，报告会另记分母样本数。
 - 空集的所有比率定义为 `0.0`，但 CLI 对空测试集直接拒绝发布。
 
 **目前仓库中没有实际跑出的 base 或 Adapter 报告。** 只能比较 `data_sha256`、manifest seed 和样本数完全一致的两份报告；不得直接比较不同测试集的数字，也不得把未运行状态写成已完成的训练收益。

@@ -1,6 +1,7 @@
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import httpx
@@ -15,36 +16,42 @@ from training.query_planner.evaluate import (
 
 
 def _row(intent: str = "search_notes", targets: list[str] | None = None) -> dict:
+    resolved_targets = ["rag-id"] if targets is None else targets
     return {
         "input": "查找 RAG",
         "output": json.dumps(
             {"intent": intent, "query": "RAG", "top_k": 3},
             ensure_ascii=False,
         ),
-        "meta": {"group": "技术/RAG.md", "target_note_ids": targets or ["rag-id"]},
+        "meta": {
+            "group": "技术/RAG.md",
+            "source_note_id": "rag-id",
+            "target_note_ids": resolved_targets,
+        },
     }
 
 
-def test_score_rows_keeps_schema_and_fallback_distinct():
-    rows = [_row(), _row()]
+def test_score_rows_keeps_schema_intent_parameters_and_fallback_independent():
+    rows = [_row(), _row("open_note"), _row("open_note")]
     outputs = [
         '{"intent":"search_notes","query":"RAG","top_k":3}',
-        '{"intent":"search_notes","query":"","top_k":99}',
+        '{"intent":"open_note","query":"RAG","top_k":99}',
+        '{"intent":"open_note","query":"../secret.md","top_k":1}',
     ]
 
     report = score_rows(
         rows,
         outputs,
-        retrieved_note_ids=[["other", "rag-id"], ["rag-id"]],
-        latencies_ms=[12.5, 20.0],
+        retrieved_note_ids=[["other", "rag-id"], ["rag-id"], []],
+        latencies_ms=[12.5, 20.0, 3.0],
     )
 
-    assert report.sample_count == 2
-    assert report.schema_valid_rate == 0.5
-    assert report.intent_accuracy == 0.5
-    assert report.parameter_constraint_rate == 0.5
-    assert report.fallback_rate == 0.5
-    assert report.recall_at_3 == 1.0
+    assert report.sample_count == 3
+    assert report.schema_valid_rate == pytest.approx(2 / 3)
+    assert report.intent_accuracy == 1.0
+    assert report.parameter_constraint_rate == pytest.approx(2 / 3)
+    assert report.fallback_rate == pytest.approx(2 / 3)
+    assert report.recall_at_3 == pytest.approx(2 / 3)
     assert report.items[1].schema_valid is False
     assert report.items[1].used_fallback is True
     assert report.items[1].parameter_constraints_valid is False
@@ -57,6 +64,23 @@ def test_score_rows_keeps_schema_and_fallback_distinct():
     assert report.items[1].retrieved_note_ids == ["rag-id"]
     assert report.items[1].target_hit is True
     assert report.items[1].latency_ms == 20.0
+    assert report.items[2].schema_valid is True
+    assert report.items[2].parameter_constraints_valid is True
+    assert report.items[2].used_fallback is True
+
+
+def test_extra_field_only_invalidates_schema_not_intent_or_parameter_metrics():
+    report = score_rows(
+        [_row()],
+        ['{"intent":"search_notes","query":"RAG","top_k":3,"extra":true}'],
+        retrieved_note_ids=[[]],
+        latencies_ms=[1.0],
+    )
+
+    assert report.schema_valid_rate == 0.0
+    assert report.intent_accuracy == 1.0
+    assert report.parameter_constraint_rate == 1.0
+    assert report.fallback_rate == 1.0
 
 
 def test_score_rows_uses_real_retrieval_results_and_explicit_recall_denominator():
@@ -76,6 +100,21 @@ def test_score_rows_uses_real_retrieval_results_and_explicit_recall_denominator(
     assert report.recall_sample_count == 1
     assert report.items[0].target_hit is False
     assert report.items[1].target_hit is None
+
+
+def test_old_row_without_explicit_targets_is_excluded_from_recall():
+    row = _row()
+    row["meta"].pop("target_note_ids")
+    report = score_rows(
+        [row],
+        ['{"intent":"search_notes","query":"RAG","top_k":3}'],
+        retrieved_note_ids=[["would-have-matched-derived-group"]],
+        latencies_ms=[1.0],
+    )
+
+    assert report.recall_sample_count == 0
+    assert report.items[0].target_note_ids == []
+    assert report.items[0].target_hit is None
 
 
 def test_score_rows_empty_input_has_zero_rates_and_rejects_length_mismatch():
@@ -181,6 +220,7 @@ def test_cli_target_validation_requires_existing_group_and_target_ids():
         def read(self, relative_path: str):
             if relative_path != "技术/RAG.md":
                 raise KeyError(relative_path)
+            return SimpleNamespace(note_id="rag-id")
 
         def read_by_id(self, note_id: str):
             if note_id != "rag-id":

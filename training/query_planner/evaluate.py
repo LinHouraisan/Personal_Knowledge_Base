@@ -22,7 +22,6 @@ from app.knowledge import KnowledgeService
 from app.planner import (
     PLANNER_PROMPT,
     PlannerDecision,
-    _unsafe_query,
     dispatch_decision,
     parse_decision,
 )
@@ -81,10 +80,18 @@ def _gold_plan(row: dict) -> PlannerDecision:
 
 def _raw_schema_valid(raw: str) -> bool:
     try:
-        decision = PlannerDecision.model_validate(json.loads(raw))
+        PlannerDecision.model_validate(json.loads(raw))
     except (json.JSONDecodeError, TypeError, ValidationError):
         return False
-    return not _unsafe_query(decision.query)
+    return True
+
+
+def _raw_intent_correct(raw: str, gold_intent: str) -> bool:
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(payload, dict) and payload.get("intent") == gold_intent
 
 
 def _raw_parameter_constraints_valid(raw: str) -> bool:
@@ -99,26 +106,18 @@ def _raw_parameter_constraints_valid(raw: str) -> bool:
     return (
         isinstance(query, str)
         and 1 <= len(query.strip()) <= 200
-        and not _unsafe_query(query.strip())
         and type(top_k) is int
         and 1 <= top_k <= 5
     )
 
 
-def _stable_note_id(relative_path: str) -> str:
-    return hashlib.sha256(relative_path.encode("utf-8")).hexdigest()[:16]
-
-
-def _target_note_ids(row: dict, gold: PlannerDecision) -> list[str]:
+def _target_note_ids(row: dict) -> list[str]:
     meta = row.get("meta")
     if not isinstance(meta, dict):
         return []
     explicit = meta.get("target_note_ids")
     if isinstance(explicit, list):
         return [str(value) for value in explicit if str(value)]
-    group = meta.get("group")
-    if isinstance(group, str) and group and gold.intent != "find_related_notes":
-        return [_stable_note_id(group)]
     return []
 
 
@@ -154,12 +153,12 @@ def score_rows(
         schema_valid = _raw_schema_valid(raw)
         parameter_valid = _raw_parameter_constraints_valid(raw)
         decision, used_fallback = parse_decision(raw, str(row.get("input", "")))
-        targets = _target_note_ids(row, gold)
+        targets = _target_note_ids(row)
         top_three = list(dict.fromkeys(str(value) for value in retrieved))[:3]
         target_hit = bool(set(targets) & set(top_three)) if targets else None
 
         schema_count += int(schema_valid)
-        intent_count += int(schema_valid and decision.intent == gold.intent)
+        intent_count += int(_raw_intent_correct(raw, gold.intent))
         parameter_count += int(parameter_valid)
         fallback_count += int(used_fallback)
         if target_hit is not None:
@@ -231,9 +230,18 @@ def validate_target_metadata(rows: list[dict], service: KnowledgeService) -> Non
         if not isinstance(meta, dict) or not isinstance(meta.get("group"), str):
             raise ValueError("测试行缺少合法 meta.group")
         try:
-            service.read(meta["group"])
+            source_note = service.read(meta["group"])
         except (KeyError, ValueError):
             raise ValueError("meta.group 不是 Vault 中存在的安全相对路径") from None
+        source_note_id = meta.get("source_note_id")
+        if not isinstance(source_note_id, str) or not source_note_id:
+            raise ValueError("测试行缺少 source_note_id，请重新生成数据")
+        try:
+            service.read_by_id(source_note_id)
+        except KeyError:
+            raise ValueError("source_note_id 在 Vault 中不存在") from None
+        if source_note.note_id != source_note_id:
+            raise ValueError("source_note_id 与 meta.group 不匹配")
         targets = meta.get("target_note_ids")
         if not isinstance(targets, list):
             raise ValueError("测试行缺少 target_note_ids，请重新生成数据")
