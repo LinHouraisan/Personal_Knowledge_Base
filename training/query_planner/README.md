@@ -42,6 +42,8 @@ nvidia-smi
 bash training/query_planner/train_autodl.sh
 ```
 
-脚本不会自动安装依赖，也不读取或保存 API Key。正式训练前会检查配置、数据、`llamafactory-cli`、GPU 和日志目录写权限；新运行会先让旧的 `.training-complete` 标志失效。只有训练命令成功且检测到真实 Adapter 文件后才重新写入完成标志。
+脚本不会自动安装依赖，也不读取或保存 API Key。正式训练前会检查配置、数据、`llamafactory-cli`、GPU、`peft`、`safetensors` 和日志目录写权限；新运行在数据重建前就会让旧的 `.training-complete` 标志失效。全部预检通过后，已有 Adapter 目录会按本次 run id 移到同级 `.backup-<run-id>` 目录，再从干净输出目录开始训练，旧产物不会被删除。
+
+本入口有意只接受 LLaMA-Factory 默认生成的 `adapter_model.safetensors`，不接受旧式 `adapter_model.bin`。训练命令成功后仍会用 PEFT 解析配置，并用 safetensors 打开非空权重；两项均通过才重新写入完成标志。
 
 默认 Adapter 输出目录为 `training/query_planner/saves/qwen2.5-3b-query-planner/`，日志位于 `training/query_planner/logs/`。这些产物用于后续离线评测，不应提交 Git。

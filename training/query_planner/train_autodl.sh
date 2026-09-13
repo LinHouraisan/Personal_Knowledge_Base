@@ -76,6 +76,16 @@ readarray -t TRAINING_PATHS <<<"$PATHS_OUTPUT"
 DATA_DIR="${TRAINING_PATHS[0]}"
 OUTPUT_DIR="${TRAINING_PATHS[1]}"
 
+if [[ "$CHECK_ONLY" == false ]]; then
+  # 正式运行一旦开始，旧完成标志立即失效；之后即使数据重建失败也不能误报成功。
+  "$PYTHON_BIN" - "$OUTPUT_DIR" <<'PY'
+from pathlib import Path
+import sys
+
+(Path(sys.argv[1]) / ".training-complete").unlink(missing_ok=True)
+PY
+fi
+
 echo "==> 1/3 按固定 seed 重建模板合成数据"
 "$PYTHON_BIN" "$SCRIPT_DIR/build_dataset.py" \
   --vault "$VAULT_PATH" \
@@ -138,14 +148,6 @@ if [[ "$CHECK_ONLY" == true ]]; then
   exit 0
 fi
 
-# 新正式运行一开始就让旧完成标志失效，失败时不能误报上次成功。
-"$PYTHON_BIN" - "$OUTPUT_DIR" <<'PY'
-from pathlib import Path
-import sys
-
-(Path(sys.argv[1]) / ".training-complete").unlink(missing_ok=True)
-PY
-
 command -v "$LLAMAFACTORY_CLI" >/dev/null 2>&1 || {
   echo "缺少 LLaMA-Factory：$LLAMAFACTORY_CLI；请先按 README 安装并固定版本。" >&2
   exit 1
@@ -155,6 +157,13 @@ command -v "$NVIDIA_SMI" >/dev/null 2>&1 || {
   exit 1
 }
 command -v "$TEE_COMMAND" >/dev/null 2>&1 || { echo "缺少 tee，无法保存真实训练日志。" >&2; exit 1; }
+"$PYTHON_BIN" - <<'PY'
+try:
+    from peft import PeftConfig  # noqa: F401
+    from safetensors import safe_open  # noqa: F401
+except ImportError as exc:
+    raise SystemExit(f"缺少 Adapter 验证依赖：{exc.name}；请先安装与训练环境匹配的 peft 和 safetensors") from exc
+PY
 GPU_INFO="$("$NVIDIA_SMI" --query-gpu=name,memory.total,driver_version --format=csv,noheader)"
 if [[ -z "$GPU_INFO" ]]; then
   echo "未检测到可用 NVIDIA GPU。" >&2
@@ -177,6 +186,31 @@ PY
 
 RUN_ID="${QUERY_PLANNER_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 LOG_FILE="$LOG_DIR/train-$RUN_ID.log"
+BACKUP_DIR="${OUTPUT_DIR}.backup-${RUN_ID}"
+BACKUP_RESULT="$("$PYTHON_BIN" - "$OUTPUT_DIR" "$BACKUP_DIR" "$CONFIG_PATH" "$DATA_DIR" <<'PY'
+from pathlib import Path
+import shutil
+import sys
+
+output, backup, config_path, data_dir = map(lambda value: Path(value).resolve(), sys.argv[1:])
+unsafe = {Path(output.anchor), Path.home().resolve(), config_path.parent, data_dir}
+if output in unsafe:
+    raise SystemExit(f"拒绝移动不安全的 Adapter 输出目录：{output}")
+if not output.exists():
+    print("none")
+elif not output.is_dir():
+    raise SystemExit(f"Adapter 输出路径不是目录：{output}")
+elif backup.exists():
+    raise SystemExit(f"备份目录已存在，请更换 QUERY_PLANNER_RUN_ID：{backup}")
+else:
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(output), str(backup))
+    print(backup)
+PY
+)"
+if [[ "$BACKUP_RESULT" != "none" ]]; then
+  echo "旧 Adapter 已移至可恢复备份：$BACKUP_RESULT"
+fi
 echo "==> 3/3 训练查询规划 Adapter"
 echo "GPU：$GPU_INFO"
 set +e
@@ -199,9 +233,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
+from peft import PeftConfig
+from safetensors import safe_open
+
 output = Path(sys.argv[1])
-if not (output / "adapter_config.json").is_file() or not any(output.glob("adapter_model.*")):
+config_path = output / "adapter_config.json"
+weights_path = output / "adapter_model.safetensors"
+if not config_path.is_file() or not weights_path.is_file() or weights_path.stat().st_size == 0:
     raise SystemExit(f"训练命令结束，但 Adapter 产物不完整：{output}")
+try:
+    try:
+        PeftConfig.from_pretrained(str(output), local_files_only=True)
+    except TypeError:
+        PeftConfig.from_pretrained(str(output))
+    with safe_open(str(weights_path), framework="pt", device="cpu") as weights:
+        if not list(weights.keys()):
+            raise ValueError("权重文件不包含任何张量")
+except Exception as exc:
+    raise SystemExit(f"Adapter 产物无法解析：{exc}") from exc
 (output / ".training-complete").write_text(datetime.now(timezone.utc).isoformat() + "\n", encoding="utf-8")
 PY
 
