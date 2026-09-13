@@ -66,6 +66,26 @@ class FakeChatModel:
         return AIMessage(content=self.content)
 
 
+class CountingService:
+    def __init__(self, service: KnowledgeService):
+        self.service = service
+        self.search_calls = 0
+        self.read_calls = 0
+        self.related_calls = 0
+
+    async def search(self, query: str, top_k: int):
+        self.search_calls += 1
+        return await self.service.search(query, top_k)
+
+    def read(self, relative_path: str):
+        self.read_calls += 1
+        return self.service.read(relative_path)
+
+    def related(self, relative_path: str):
+        self.related_calls += 1
+        return self.service.related(relative_path)
+
+
 @pytest_asyncio.fixture
 async def service(vault: Path, tmp_path: Path) -> KnowledgeService:
     index = JsonVectorIndex(vault, tmp_path / "index.json", FakeEmbedder())
@@ -184,34 +204,105 @@ async def test_disabled_planner_preserves_current_agent_behavior(
 async def test_planner_request_failure_preserves_current_agent_flow(
     service: KnowledgeService,
 ):
+    counted = CountingService(service)
+    tool_runner_creations = 0
+
+    def tool_runner_factory(tools):
+        nonlocal tool_runner_creations
+        tool_runner_creations += 1
+        return SearchCallingFakeRunner(tools)
+
     agent = KnowledgeAgent(
-        service,
-        runner_factory=lambda tools: SearchCallingFakeRunner(tools),
+        counted,
+        runner_factory=tool_runner_factory,
         planner=FakePlanner(RuntimeError("planner unavailable")),
+        answer_runner_factory=lambda: pytest.fail(
+            "Planner 请求失败时不应创建无工具回答 runner"
+        ),
     )
 
     result = await agent.answer("RAG 是什么？")
 
     assert result.status == "answered"
     assert result.sources
+    assert tool_runner_creations == 1
+    assert counted.search_calls == 1
 
 
 @pytest.mark.asyncio
 async def test_invalid_planner_response_runs_safe_search_fallback(
     service: KnowledgeService,
 ):
-    runner = FakeRunner("根据预检索证据回答。")
+    counted = CountingService(service)
+    answer_runner = FakeRunner("根据预检索证据回答。")
     agent = KnowledgeAgent(
-        service,
-        runner_factory=lambda tools: runner,
+        counted,
+        runner_factory=lambda tools: pytest.fail(
+            "Planner 完成后不应创建工具型 runner"
+        ),
         planner=FakePlanner("not-json"),
+        answer_runner_factory=lambda: answer_runner,
     )
 
     result = await agent.answer("RAG")
 
     assert result.status == "answered"
     assert result.sources
-    assert "只读预检索证据" in str(runner.payloads[0])
+    assert counted.search_calls == 1
+    assert counted.read_calls == 0
+    assert counted.related_calls == 0
+    assert "只读预检索证据" in str(answer_runner.payloads[0])
+
+
+@pytest.mark.asyncio
+async def test_valid_planner_dispatches_once_and_never_creates_tool_runner(
+    service: KnowledgeService,
+):
+    counted = CountingService(service)
+    answer_runner = FakeRunner("根据受限规划器证据回答。")
+    agent = KnowledgeAgent(
+        counted,
+        runner_factory=lambda tools: pytest.fail(
+            "Planner 完成后不应创建工具型 runner"
+        ),
+        planner=FakePlanner(
+            '{"intent":"search_notes","query":"RAG","top_k":3}'
+        ),
+        answer_runner_factory=lambda: answer_runner,
+    )
+
+    result = await agent.answer("RAG 是什么？")
+
+    assert result.status == "answered"
+    assert counted.search_calls == 1
+    assert counted.read_calls == 0
+    assert counted.related_calls == 0
+    assert len(answer_runner.payloads) == 1
+
+
+@pytest.mark.asyncio
+async def test_planner_with_no_sources_does_not_call_answer_model(
+    service: KnowledgeService,
+):
+    counted = CountingService(service)
+    agent = KnowledgeAgent(
+        counted,
+        runner_factory=lambda tools: pytest.fail(
+            "Planner 完成后不应创建工具型 runner"
+        ),
+        planner=FakePlanner(
+            '{"intent":"search_notes","query":"不存在的内容","top_k":3}'
+        ),
+        answer_runner_factory=lambda: pytest.fail(
+            "没有证据时不应创建回答 runner"
+        ),
+    )
+
+    result = await agent.answer("不存在的内容")
+
+    assert result.status == "no_evidence"
+    assert result.sources == []
+    assert counted.search_calls == 1
 
 
 def test_planner_settings_are_disabled_and_secretless_by_default():
