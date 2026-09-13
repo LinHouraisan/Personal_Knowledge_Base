@@ -3,6 +3,6 @@
 __pycache__/
 .pytest_cache/
 *.pyc
+*.egg-info/
 data/
 private_vault/
-

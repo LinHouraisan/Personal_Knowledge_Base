@@ -66,3 +66,32 @@ def test_status_reports_cached_note_and_chunk_counts(service: KnowledgeService):
     assert status.index_ready is True
     assert status.notes == 3
     assert status.chunks >= 3
+
+
+class SemanticFakeEmbedder:
+    @staticmethod
+    def _vector(text: str) -> list[float]:
+        return [
+            float(any(word in text for word in ("编造", "幻觉", "证据", "拒答"))),
+            float(any(word in text for word in ("向量", "Embedding", "检索"))),
+        ]
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(text) for text in texts]
+
+    async def aembed_query(self, text: str) -> list[float]:
+        return self._vector(text)
+
+
+@pytest.mark.asyncio
+async def test_public_sample_vault_supports_grounded_search(tmp_path: Path):
+    sample_vault = Path(__file__).parents[1] / "sample_vault"
+    index = JsonVectorIndex(sample_vault, tmp_path / "sample-index.json", SemanticFakeEmbedder())
+    service = KnowledgeService(sample_vault, "个人知识库示例", index)
+
+    stats = await service.rebuild()
+    sources = await service.search("如何避免模型在知识库问答中编造内容", 3)
+
+    assert stats.notes == 16
+    assert "技术/模型幻觉约束.md" in {source.relative_path for source in sources}
+    assert all(source.obsidian_uri.startswith("obsidian://open?") for source in sources)
