@@ -1,0 +1,29 @@
+{
+  "query_planner_test": {
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    },
+    "file_name": "test.jsonl",
+    "formatting": "alpaca"
+  },
+  "query_planner_train": {
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    },
+    "file_name": "train.jsonl",
+    "formatting": "alpaca"
+  },
+  "query_planner_validation": {
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    },
+    "file_name": "validation.jsonl",
+    "formatting": "alpaca"
+  }
+}

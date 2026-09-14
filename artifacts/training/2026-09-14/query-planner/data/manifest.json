@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "test": 4,
+    "total": 82,
+    "train": 70,
+    "validation": 8
+  },
+  "dropped_cross_split_targets": 14,
+  "files": {
+    "dataset_info.json": "86f1e8d7c3ee345514b0b8bf575627a53ca251a30e4ac8e002044bc3020580bb",
+    "test.jsonl": "1a3db5a6550a82f02005406e1ebd1436a4a498b9111fbf5818cc3e45843c3027",
+    "train.jsonl": "f303d6d5b86688e0c9a9a2744fc904385bd14ac92614564a7a33f71c18308c58",
+    "validation.jsonl": "12613eb41bf6993a6a89a874160b9dcd0eb77a73b7b0ca9cb48023cfcd44639f"
+  },
+  "seed": 8503,
+  "source": "synthetic-template"
+}
