@@ -1,0 +1,310 @@
+{
+  "executed_at": "2026-09-16T15:17:11.369525",
+  "scope": "真实 FastAPI 路由 + 替身知识服务及模型，无网络无费用",
+  "results": [
+    {
+      "id": "API-01",
+      "status": 200,
+      "passed": true,
+      "elapsed_ms": 4.5,
+      "response": {
+        "status": "ok",
+        "vault_name": "公开测试夹具",
+        "index_ready": true,
+        "notes": 1,
+        "chunks": 1
+      }
+    },
+    {
+      "id": "API-02",
+      "status": 200,
+      "passed": true,
+      "elapsed_ms": 2.7,
+      "response": {
+        "sources": [
+          {
+            "note_id": "demo-note",
+            "title": "接口测试样本",
+            "relative_path": "样本.md",
+            "excerpt": "仅用于接口合同验证。",
+            "score": null,
+            "obsidian_uri": "obsidian://open?vault=demo&file=sample"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-03",
+      "status": 422,
+      "passed": true,
+      "elapsed_ms": 2.0,
+      "response": {
+        "detail": [
+          {
+            "type": "greater_than_equal",
+            "loc": [
+              "query",
+              "top_k"
+            ],
+            "msg": "Input should be greater than or equal to 1",
+            "input": "0",
+            "ctx": {
+              "ge": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-04",
+      "status": 422,
+      "passed": true,
+      "elapsed_ms": 1.6,
+      "response": {
+        "detail": [
+          {
+            "type": "less_than_equal",
+            "loc": [
+              "query",
+              "top_k"
+            ],
+            "msg": "Input should be less than or equal to 20",
+            "input": "21",
+            "ctx": {
+              "le": 20
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-05",
+      "status": 422,
+      "passed": true,
+      "elapsed_ms": 3.7,
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "query",
+              "q"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-06",
+      "status": 422,
+      "passed": true,
+      "elapsed_ms": 2.7,
+      "response": {
+        "detail": [
+          {
+            "type": "string_too_short",
+            "loc": [
+              "body",
+              "question"
+            ],
+            "msg": "String should have at least 1 character",
+            "input": "",
+            "ctx": {
+              "min_length": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-07",
+      "status": 422,
+      "passed": true,
+      "elapsed_ms": 2.1,
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "question"
+            ],
+            "msg": "Field required",
+            "input": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-08",
+      "status": 404,
+      "passed": true,
+      "elapsed_ms": 1.7,
+      "response": {
+        "detail": "笔记不存在"
+      }
+    },
+    {
+      "id": "API-09",
+      "status": 200,
+      "passed": true,
+      "elapsed_ms": 2.2,
+      "response": {
+        "status": "no_evidence",
+        "answer": "无法从知识库确认。",
+        "sources": []
+      }
+    },
+    {
+      "id": "API-10",
+      "status": 200,
+      "passed": true,
+      "elapsed_ms": 1.2,
+      "response": {
+        "paths": [
+          "/health",
+          "/v1/index/rebuild",
+          "/v1/search",
+          "/v1/chat",
+          "/v1/notes/{note_id}"
+        ]
+      }
+    }
+  ],
+  "rows": [
+    [
+      "API-01",
+      "健康检查",
+      "GET /health",
+      "无请求体",
+      "返回索引状态",
+      "200；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      4.5,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-02",
+      "正常检索",
+      "GET /v1/search?q=RAG&top_k=3",
+      "无请求体",
+      "返回结构化来源及原文链接",
+      "200；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      2.7,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-03",
+      "top_k 下界",
+      "GET /v1/search?q=RAG&top_k=0",
+      "无请求体",
+      "拒绝小于 1 的 top_k",
+      "422；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      2.0,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-04",
+      "top_k 上界",
+      "GET /v1/search?q=RAG&top_k=21",
+      "无请求体",
+      "拒绝大于 20 的 top_k",
+      "422；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      1.6,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-05",
+      "缺少搜索词",
+      "GET /v1/search",
+      "无请求体",
+      "拒绝缺少 q 的请求",
+      "422；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      3.7,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-06",
+      "空问题",
+      "POST /v1/chat",
+      "{\"question\": \"\"}",
+      "拒绝空字符串问题",
+      "422；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      2.7,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-07",
+      "缺少问题字段",
+      "POST /v1/chat",
+      "{}",
+      "拒绝缺少 question 的请求",
+      "422；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      2.1,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-08",
+      "不存在的笔记",
+      "GET /v1/notes/not-existing-demo-note",
+      "无请求体",
+      "返回笔记不存在",
+      "404；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      1.7,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-09",
+      "无证据响应合同",
+      "POST /v1/chat",
+      "{\"question\": \"测试夹具中的无证据请求\"}",
+      "保留 no_evidence 与空来源",
+      "200；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      2.2,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "API-10",
+      "接口文档",
+      "GET /openapi.json",
+      "无请求体",
+      "包含搜索与问答接口",
+      "200；响应检查符合预期",
+      "通过",
+      "离线接口合同测试",
+      1.2,
+      "替身检索／替身模型；不代表真实模型质量"
+    ],
+    [
+      "LIVE-01",
+      "真实模型问答",
+      "POST /v1/chat",
+      "{\"question\":\"知识库如何约束模型幻觉？\"}",
+      "答案与来源一致；人工核对",
+      "未运行",
+      "待测",
+      "真实 Embedding 与聊天模型",
+      null,
+      "需启动实际服务并配置模型；不纳入离线通过数"
+    ]
+  ]
+}

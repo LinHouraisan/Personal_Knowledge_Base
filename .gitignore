@@ -13,3 +13,12 @@ training/query_planner/data/*
 training/query_planner/saves/
 training/query_planner/logs/
 private_vault/
+
+# Local generation and temporary test outputs
+.codex_artifacts/
+.superpowers/
+# Duplicate training checkpoints; final artifacts remain tracked
+artifacts/training/**/checkpoint-*/
+artifacts/training/**/checkpoints/
+.env.*
+!.env.example

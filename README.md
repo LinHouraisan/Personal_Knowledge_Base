@@ -1,5 +1,11 @@
 # Obsidian 个人知识库 RAG
 
+## 当前状态与材料入口
+
+请先阅读 [项目当前状态](docs/CURRENT-STATUS.md)，区分已实现能力、已完成训练、历史评测和未验证效果。
+
+- [接口集合、Excel 测试表与执行记录](docs/validation/api/README.md)
+
 这是一个面向 Obsidian Markdown Vault 的只读知识检索与问答服务。它解析 Frontmatter、标签和 `[[双向链接]]`，建立可增量更新的向量索引，通过 LangChain Agent 检索证据，并让用户从来源卡片直接回到 Obsidian 原笔记。
 
 系统只提供搜索、总结、关联发现和整理建议。创建、修改和删除笔记仍由 Obsidian 或其他成熟写作工具完成。

@@ -10,9 +10,9 @@
 
 ## 数据来源与边界
 
-`build_dataset.py` 从 `sample_vault` 的标题、标签和链接离线生成模板合成数据，固定 seed 为 `8503`。先按 source 笔记稳定切分；若一条样本的显式 target 笔记属于另一 split，整条样本会被丢弃，不会仅清空 target 后保留泄漏 query。`manifest.json` 用 `dropped_cross_split_targets` 记录这一数据损失。失效 wikilink 不会被当成 gold query 或 target，相应检索模板回到已存在的 source 标题。因此一个真实 note ID 无论作为 source 还是 target 都只出现在一个 split。写入 LLaMA-Factory 的 `output` 是 JSON 字符串，注册名与 `data/dataset_info.json` 一致。个人真实 Vault、缓存、模型权重、Adapter、checkpoint 和日志均不提交仓库。
+`build_dataset.py` 从 `sample_vault` 的标题、标签和链接离线生成模板合成数据，固定 seed 为 `8503`。先按 source 笔记稳定切分；若一条样本的显式 target 笔记属于另一 split，整条样本会被丢弃，不会仅清空 target 后保留泄漏 query。`manifest.json` 用 `dropped_cross_split_targets` 记录这一数据损失。失效 wikilink 不会被当成 gold query 或 target，相应检索模板回到已存在的 source 标题。因此一个真实 note ID 无论作为 source 还是 target 都只出现在一个 split。写入 LLaMA-Factory 的 `output` 是 JSON 字符串，注册名与 `data/dataset_info.json` 一致。个人真实 Vault 与运行缓存不提交。训练入口的输出目录保持忽略；2026-09-14 的最终 Adapter、数据和日志另在 artifacts/training 中留档，重复 checkpoint 已移到仓库外归档。
 
-当前仓库只提供可复现的数据、配置和训练入口，**尚未完成真实 LoRA 训练，也没有可用于简历的提升数字**。指标只能来自后续固定测试集生成的 base/Adapter 真实评测报告。
+2026-09-14 已完成真实查询规划 LoRA 训练并留存 Adapter、日志与权重校验记录，见 [训练留档](../../artifacts/training/2026-09-14/query-planner/README.md)。当前仍没有已确认的同条件 base/Adapter 生成对照收益，不引用提升数字。测试集仅 4 条，需要扩展后再判断泛化能力。
 
 ## 本地轻量检查
 
