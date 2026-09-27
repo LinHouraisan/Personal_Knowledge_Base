@@ -1,0 +1,35 @@
+{
+  "mode": "synthetic_offline",
+  "model_evaluation": "not_run",
+  "generated_at": "2026-09-27T04:56:28.026751+00:00",
+  "code_version": {
+    "commit": "26df8c8c33bd0cfa3eac5a0ad2d5d2d9b41fde28",
+    "working_tree": "modified"
+  },
+  "scenarios": [
+    {
+      "id": "ai-development",
+      "http_status": 200,
+      "request_sha256": "436b840c58f52314a74b55b2e228e6c7fe893895ba09c00d69ae53ef53729aa6",
+      "recognized_count": 5,
+      "with_evidence_count": 4,
+      "passed": true
+    },
+    {
+      "id": "fullstack",
+      "http_status": 200,
+      "request_sha256": "dedca28d933775f507490eaf9ff97aef7d467b4819e03ed04a3cd4dce8704b75",
+      "recognized_count": 4,
+      "with_evidence_count": 1,
+      "passed": true
+    },
+    {
+      "id": "data-workflow",
+      "http_status": 200,
+      "request_sha256": "9bfc0321bcb5bd4bf3fa1f9bc7cf6a5390befee3bb065568dd63b49a3f5aad99",
+      "recognized_count": 4,
+      "with_evidence_count": 0,
+      "passed": true
+    }
+  ]
+}

@@ -43,6 +43,8 @@ class Source(BaseModel):
     relative_path: str
     excerpt: str
     score: float | None = None
+    chunk_id: str | None = None
+    heading: str | None = None
     obsidian_uri: str
 
 

@@ -123,3 +123,23 @@ def test_root_serves_local_interface(client: TestClient):
 
     assert response.status_code == 200
     assert "在 Obsidian 中打开" in response.text
+
+
+def test_capabilities_and_old_source_fields(client):
+    assert client.get("/v1/capabilities").json() == {
+        "demo": False, "answer_mode": "configured_model", "vault_origin": "configured"
+    }
+    source = client.get("/v1/search", params={"q": "RAG"}).json()["sources"][0]
+    assert source["chunk_id"] is None and source["heading"] is None
+
+
+def test_career_validation_and_private_text_logging(client, caplog):
+    import logging
+    caplog.set_level(logging.INFO, logger="obsidian_knowledge")
+    secret = "私人岗位示例含未识别词汇"
+    response = client.post("/v1/career/report", json={"jd_text": secret})
+    assert response.status_code == 200
+    assert response.json()["report"]["coverage_ratio"] is None
+    assert "path=/v1/career/report" in caplog.text and secret not in caplog.text
+    for text in [" \n ", "x" * 12001]:
+        assert client.post("/v1/career/report", json={"jd_text": text}).status_code == 422

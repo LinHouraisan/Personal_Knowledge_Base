@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,6 +12,7 @@ class Settings(BaseSettings):
     vault_path: Path = Path("sample_vault")
     vault_name: str = "个人知识库示例"
     index_path: Path = Path("data/index.json")
+    retrieval_mode: Literal["vector", "hybrid"] = "vector"
 
     chat_base_url: str = "https://api.deepseek.com"
     chat_api_key: SecretStr | None = None

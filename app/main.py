@@ -9,6 +9,7 @@ from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
 from app.agent import KnowledgeAgent, build_knowledge_agent
+from app.career import CareerRequest, build_career_report, career_report_markdown
 from app.config import Settings, get_settings
 from app.index import JsonVectorIndex
 from app.knowledge import KnowledgeService
@@ -25,11 +26,12 @@ def create_app(
     settings: Settings | None = None,
     service: KnowledgeService | None = None,
     agent: KnowledgeAgent | None = None,
+    *,
+    demo_mode: bool = False,
 ) -> FastAPI:
-    resolved = settings or get_settings()
-
     @asynccontextmanager
     async def lifespan(application: FastAPI):
+        resolved = settings or get_settings()
         knowledge = service
         if knowledge is None:
             embedder = OpenAIEmbeddings(
@@ -46,6 +48,7 @@ def create_app(
                 resolved.vault_path,
                 resolved.index_path,
                 embedder,
+                mode=resolved.retrieval_mode,
             )
             knowledge = KnowledgeService(
                 resolved.vault_path,
@@ -81,6 +84,19 @@ def create_app(
             int((time.perf_counter() - started) * 1000),
         )
         return response
+
+    @application.get("/v1/capabilities")
+    async def capabilities():
+        return {
+            "demo": demo_mode,
+            "answer_mode": "extractive" if demo_mode else "configured_model",
+            "vault_origin": "synthetic" if demo_mode else "configured",
+        }
+
+    @application.post("/v1/career/report")
+    async def career_report(request: CareerRequest):
+        report = build_career_report(request.jd_text, application.state.knowledge)
+        return {"report": report, "markdown": career_report_markdown(report)}
 
     @application.get("/health")
     async def health():

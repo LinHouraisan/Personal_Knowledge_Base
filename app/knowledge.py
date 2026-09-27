@@ -1,7 +1,9 @@
 import asyncio
+import re
 from pathlib import Path
 
 from app.index import Retriever
+from app.lexical import contains_term, find_terms
 from app.models import (
     IndexStats,
     KnowledgeStatus,
@@ -11,7 +13,7 @@ from app.models import (
     VaultNote,
 )
 from app.obsidian import build_obsidian_uri
-from app.vault import parse_note, safe_note_path, scan_vault
+from app.vault import chunk_note, parse_note, safe_note_path, scan_vault
 
 
 def _names(note: VaultNote) -> set[str]:
@@ -59,6 +61,8 @@ class KnowledgeService:
         note: VaultNote,
         excerpt: str | None = None,
         score: float | None = None,
+        chunk_id: str | None = None,
+        heading: str | None = None,
     ) -> Source:
         return Source(
             note_id=note.id,
@@ -66,6 +70,8 @@ class KnowledgeService:
             relative_path=note.relative_path,
             excerpt=(excerpt or note.content).replace("\n", " ")[:240],
             score=score,
+            chunk_id=chunk_id,
+            heading=heading,
             obsidian_uri=build_obsidian_uri(self.vault_name, note.relative_path),
         )
 
@@ -75,11 +81,59 @@ class KnowledgeService:
             self._source(
                 self._notes_by_id[hit.chunk.note_id],
                 excerpt=hit.chunk.text,
-                score=hit.score,
+                score=None if getattr(self.retriever, 'mode', None) == 'lexical' else hit.score,
+                chunk_id=hit.chunk.id,
+                heading=hit.chunk.heading,
             )
             for hit in hits
             if hit.chunk.note_id in self._notes_by_id
         ]
+
+    def keyword_sources(self, terms: list[str], top_k: int = 3) -> list[Source]:
+        if not 1 <= top_k <= 20:
+            raise ValueError("top_k 必须在 1 到 20 之间")
+        ranked = []
+        for note in self._notes_by_id.values():
+            # A heading or tag alone is not body evidence.
+            excluded = [(m.start(), m.end()) for m in re.finditer(
+                r"(?m)^\s{0,3}#{1,6}[^\S\n]+[^\n]*|(?<![\w/])#[\w/-]+", note.content)]
+            matches = [match for match in find_terms(note.content, terms)
+                       if not any(start <= match[0] < end for start, end in excluded)]
+            if not matches:
+                continue
+            position = matches[0][0]
+            start = max(0, position - 80)
+            excerpt = note.content[start:start + 240]
+            chunk = self._chunk_at(note, position)
+            source = self._source(note, chunk_id=chunk.id if chunk else None,
+                                  heading=chunk.heading if chunk else None)
+            source.excerpt = excerpt
+            priority = (sum(contains_term(note.title, term) for term in terms),
+                        sum(contains_term(" ".join(note.tags), term) for term in terms))
+            ranked.append((priority, note.relative_path, source))
+        ranked.sort(key=lambda item: (-item[0][0], -item[0][1], item[1]))
+        return [source for _, _, source in ranked[:top_k]]
+
+    @staticmethod
+    def _chunk_at(note: VaultNote, position: int):
+        # Mirror only the existing whitespace compaction, preserving original offsets.
+        positions = []
+        for match in re.finditer(r"[^\n]+", note.content):
+            line = match.group()
+            left = len(line) - len(line.lstrip())
+            right = len(line.rstrip())
+            positions.extend(range(match.start() + left, match.start() + right))
+        compact = "".join(note.content[index] for index in positions)
+        cursor = 0
+        for chunk in chunk_note(note):
+            start = compact.find(chunk.text, cursor)
+            if start < 0:
+                continue
+            end = start + len(chunk.text)
+            if positions[start] <= position <= positions[end - 1]:
+                return chunk
+            cursor = end
+        return None
 
     def read(self, relative_path: str) -> NoteView:
         path = safe_note_path(self.vault_path, relative_path)

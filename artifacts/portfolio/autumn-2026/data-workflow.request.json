@@ -1,0 +1,5 @@
+{
+  "label": "数据处理与标注",
+  "source": "public_synthetic",
+  "jd_text": "使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。"
+}

@@ -1,0 +1,195 @@
+{
+  "report": {
+    "method": "keyword_evidence_v1",
+    "requirements": [
+      {
+        "skill_id": "python",
+        "label": "Python",
+        "matched_terms": [
+          "python"
+        ],
+        "jd_excerpt": "使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。",
+        "status": "not_recorded",
+        "sources": [],
+        "suggested_action": "可通过以下交付物补充记录：一段可运行的数据处理脚本及输入输出。"
+      },
+      {
+        "skill_id": "fastapi",
+        "label": "FastAPI",
+        "matched_terms": [
+          "fastapi"
+        ],
+        "jd_excerpt": "使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。",
+        "status": "evidence_found",
+        "sources": [
+          {
+            "note_id": "e7434aa724cb00a4",
+            "title": "FastAPI服务化",
+            "relative_path": "技术/FastAPI服务化.md",
+            "excerpt": "# FastAPI服务化\n\nFastAPI 提供健康检查、索引重建、搜索、问答和按 ID 读取笔记接口。Swagger 用来核对接口，本地页面承担日常查询入口。\n\n阻塞的文件扫描与 JSON 持久化放到工作线程，避免占用事件循环。访问日志只记录路径、状态、耗时和来源数量，不记录问题、笔记正文或回答内容。",
+            "score": null,
+            "chunk_id": "f3d6577c8820dac2cc92",
+            "heading": "FastAPI服务化",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E6%8A%80%E6%9C%AF%2FFastAPI%E6%9C%8D%E5%8A%A1%E5%8C%96.md"
+          },
+          {
+            "note_id": "9ec7427e8659524c",
+            "title": "个人知识库",
+            "relative_path": "项目/个人知识库.md",
+            "excerpt": "\n扫描流程见 [[RAG检索流程]]，向量模型选择见 [[Embedding选择]]，Agent 边界见 [[LangChain工具调用]]。API 使用 [[FastAPI服务化]]，回答可信度依赖 [[模型幻觉约束]]。\n\n## 设计判断\n\n第一版使用 JSON 保存可再生成索引，但查询阶段全部在内存完成。数据量增加后按 [[向量索引迁移]] 替换底层存储。",
+            "score": null,
+            "chunk_id": "f32a2f29d913eea10efc",
+            "heading": "方案组成",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E9%A1%B9%E7%9B%AE%2F%E4%B8%AA%E4%BA%BA%E7%9F%A5%E8%AF%86%E5%BA%93.md"
+          },
+          {
+            "note_id": "7160e3cd9b31dfc9",
+            "title": "项目复盘",
+            "relative_path": "项目/项目复盘.md",
+            "excerpt": "。真正需要先验证的是：扫描是否稳定、检索是否有来源、来源能否回到原笔记。\n\n因此 [[个人知识库]] 第一阶段不做 Obsidian 插件，也不做自动编辑。用 FastAPI 页面验证查询闭环，用 Obsidian URI 返回原工作区。下次复盘使用 [[每周复盘模板]]。",
+            "score": null,
+            "chunk_id": "f9be3ea37e261d7e773b",
+            "heading": "项目复盘",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E9%A1%B9%E7%9B%AE%2F%E9%A1%B9%E7%9B%AE%E5%A4%8D%E7%9B%98.md"
+          }
+        ],
+        "suggested_action": "核对已有记录并补齐：一个带输入校验和失败响应的接口及测试。"
+      },
+      {
+        "skill_id": "rag",
+        "label": "RAG",
+        "matched_terms": [
+          "rag"
+        ],
+        "jd_excerpt": "使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。",
+        "status": "evidence_found",
+        "sources": [
+          {
+            "note_id": "1f2c7593ad11b9c6",
+            "title": "知识库下一步",
+            "relative_path": "待办/知识库下一步.md",
+            "excerpt": "# 知识库下一步\n\n- 用公开示例 Vault 验证 [[RAG检索流程]]。\n- 检查 [[模型幻觉约束]] 是否覆盖无证据回答。\n- 记录真实 bge-m3 召回结果，不预设效果数字。\n- 数据规模明显增长后再评估 [[向量索引迁移]]。\n- 所有内容编辑继续在 Obsidian 中完成。",
+            "score": null,
+            "chunk_id": "a751ef5f4d3f5cd76540",
+            "heading": "知识库下一步",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E5%BE%85%E5%8A%9E%2F%E7%9F%A5%E8%AF%86%E5%BA%93%E4%B8%8B%E4%B8%80%E6%AD%A5.md"
+          },
+          {
+            "note_id": "233ab4f9a116f329",
+            "title": "Embedding选择",
+            "relative_path": "技术/Embedding选择.md",
+            "excerpt": "衡，而且可以通过 OpenAI-compatible 接口与应用解耦。\n\n单元测试不调用真实模型，而是注入确定性的 Fake Embedder。这可以验证 [[RAG检索流程]]，但不能替代真实语料上的召回率评测。",
+            "score": null,
+            "chunk_id": "92e6975e931f1d194571",
+            "heading": "Embedding选择",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E6%8A%80%E6%9C%AF%2FEmbedding%E9%80%89%E6%8B%A9.md"
+          },
+          {
+            "note_id": "a2348e24907d9120",
+            "title": "向量索引迁移",
+            "relative_path": "技术/向量索引迁移.md",
+            "excerpt": "调用依赖 Retriever 协议，而不是具体 JSON 字段。未来迁移 pgvector 时保留搜索结果模型和 API 合同，只替换索引实现。背景流程见 [[RAG检索流程]]。",
+            "score": null,
+            "chunk_id": "8142d3257927d3955db4",
+            "heading": "向量索引迁移",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E6%8A%80%E6%9C%AF%2F%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%E8%BF%81%E7%A7%BB.md"
+          }
+        ],
+        "suggested_action": "核对已有记录并补齐：问题—来源片段—回答的评测案例。"
+      },
+      {
+        "skill_id": "embedding",
+        "label": "Embedding",
+        "matched_terms": [
+          "embedding"
+        ],
+        "jd_excerpt": "使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。",
+        "status": "evidence_found",
+        "sources": [
+          {
+            "note_id": "f0306dfad25af97a",
+            "title": "2026年第36周",
+            "relative_path": "复盘/2026年第36周.md",
+            "excerpt": "年第36周\n\n本周明确了 [[个人知识库]] 的只读边界：不替代 Obsidian 编辑，只解决搜索、问答、关联发现和原文定位。\n\n已经确认的工程判断包括 [[Embedding选择]]、[[模型幻觉约束]] 和 [[向量索引迁移]]。下一步集中验证增量索引以及 Obsidian URI 的中文路径编码，任务见 [[知识库下一步]]。",
+            "score": null,
+            "chunk_id": "d3f03b89bcdbf7b09f25",
+            "heading": "2026年第36周",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E5%A4%8D%E7%9B%98%2F2026%E5%B9%B4%E7%AC%AC36%E5%91%A8.md"
+          },
+          {
+            "note_id": "ee3a01fee01debe1",
+            "title": "RAG检索流程",
+            "relative_path": "技术/RAG检索流程.md",
+            "excerpt": "# RAG检索流程\n\n索引流程为 Markdown 扫描、Frontmatter 解析、段落分块、Embedding 和向量持久化。查询时先计算问题向量，再使用余弦相似度选择相关 Chunk。\n\nChunk 必须携带标题、相对路径、标签和所属标题。回答时这些字段会变成结构化来源，并生成可点击的 Obsidian 地址。模型选择记录在 [[Embedding选择]]，可信度约束见 [[模型幻觉约束]]。",
+            "score": null,
+            "chunk_id": "39477f4c8da3ec45f7b5",
+            "heading": "RAG检索流程",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E6%8A%80%E6%9C%AF%2FRAG%E6%A3%80%E7%B4%A2%E6%B5%81%E7%A8%8B.md"
+          },
+          {
+            "note_id": "9ec7427e8659524c",
+            "title": "个人知识库",
+            "relative_path": "项目/个人知识库.md",
+            "excerpt": "bsidian 原有的文件结构和编辑体验。服务不接管写入，只返回建议和原笔记位置。\n\n## 方案组成\n\n扫描流程见 [[RAG检索流程]]，向量模型选择见 [[Embedding选择]]，Agent 边界见 [[LangChain工具调用]]。API 使用 [[FastAPI服务化]]，回答可信度依赖 [[模型幻觉约束]]。\n\n## 设计判断\n\n第一版使用 JSON 保存可再生成索引，但查询阶段全部在内存完成。数据量增加后按 [[向量索引迁移]] 替换底层存储。",
+            "score": null,
+            "chunk_id": "f32a2f29d913eea10efc",
+            "heading": "方案组成",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E9%A1%B9%E7%9B%AE%2F%E4%B8%AA%E4%BA%BA%E7%9F%A5%E8%AF%86%E5%BA%93.md"
+          }
+        ],
+        "suggested_action": "核对已有记录并补齐：同集检索对照和实验条件。"
+      },
+      {
+        "skill_id": "agent",
+        "label": "Agent",
+        "matched_terms": [
+          "agent"
+        ],
+        "jd_excerpt": "使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。",
+        "status": "evidence_found",
+        "sources": [
+          {
+            "note_id": "c0305f1350f9fef5",
+            "title": "LangChain工具调用",
+            "relative_path": "技术/LangChain工具调用.md",
+            "excerpt": "# LangChain工具调用\n\nAgent 只获得三个工具：检索笔记、读取指定笔记、查找关联笔记。工具参数不能传入绝对路径，读取范围由 Vault 根目录限制。\n\n每次请求单独收集工具证据，避免并发问答共享来源。若 Agent 没有调用工具，系统会丢弃模型给出的知识结论并返回无法确认。设计依据见 [[模型幻觉约束]]。",
+            "score": null,
+            "chunk_id": "7775d0ed636aa633658a",
+            "heading": "LangChain工具调用",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E6%8A%80%E6%9C%AF%2FLangChain%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8.md"
+          },
+          {
+            "note_id": "a82fadfdbd9b6efc",
+            "title": "模型幻觉约束",
+            "relative_path": "技术/模型幻觉约束.md",
+            "excerpt": "示词不能消除模型幻觉。个人知识库回答必须绑定工具证据：检索工具返回真实笔记片段，API 独立返回结构化来源，用户可以回到 Obsidian 原文核对。\n\n如果 Agent 没有调用工具，或检索不到证据，系统拒绝把模型文本当作知识库答案。笔记内容也被视为不可信数据，不能覆盖系统指令。这一策略与 [[LangChain工具调用]] 配合使用。",
+            "score": null,
+            "chunk_id": "cbe8ef48db5834a3cceb",
+            "heading": "模型幻觉约束",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E6%8A%80%E6%9C%AF%2F%E6%A8%A1%E5%9E%8B%E5%B9%BB%E8%A7%89%E7%BA%A6%E6%9D%9F.md"
+          },
+          {
+            "note_id": "9ec7427e8659524c",
+            "title": "个人知识库",
+            "relative_path": "项目/个人知识库.md",
+            "excerpt": "构和编辑体验。服务不接管写入，只返回建议和原笔记位置。\n\n## 方案组成\n\n扫描流程见 [[RAG检索流程]]，向量模型选择见 [[Embedding选择]]，Agent 边界见 [[LangChain工具调用]]。API 使用 [[FastAPI服务化]]，回答可信度依赖 [[模型幻觉约束]]。\n\n## 设计判断\n\n第一版使用 JSON 保存可再生成索引，但查询阶段全部在内存完成。数据量增加后按 [[向量索引迁移]] 替换底层存储。",
+            "score": null,
+            "chunk_id": "f32a2f29d913eea10efc",
+            "heading": "方案组成",
+            "obsidian_uri": "obsidian://open?vault=%E5%85%AC%E5%BC%80%E8%99%9A%E6%9E%84%E6%BC%94%E7%A4%BA%E7%9F%A5%E8%AF%86%E5%BA%93&file=%E9%A1%B9%E7%9B%AE%2F%E4%B8%AA%E4%BA%BA%E7%9F%A5%E8%AF%86%E5%BA%93.md"
+          }
+        ],
+        "suggested_action": "核对已有记录并补齐：工具调用参数与失败处理案例。"
+      }
+    ],
+    "recognized_count": 5,
+    "with_evidence_count": 4,
+    "coverage_ratio": 0.8,
+    "limitations": [
+      "仅提取 12 项有限词表关键词，不能完整理解岗位要求；请核对原句，尤其是否定或可选要求。",
+      "关键词资料命中不等于个人能力、项目经历或录用概率；未找到记录不代表不会。",
+      "结果未经过人工核验；建议来自 keyword_evidence_v1 固定模板。"
+    ]
+  },
+  "markdown": "# 岗位关键词证据对照\n\n方法：keyword_evidence_v1（规则匹配，无模型评审）\n已识别关键词的资料覆盖率：80.0%；资料命中 4/5\n\n## Python\n\n状态：当前知识库未找到相关记录\n命中别名：python\n岗位原句：使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。\n建议：可通过以下交付物补充记录：一段可运行的数据处理脚本及输入输出。\n\n\n## FastAPI\n\n状态：找到相关资料\n命中别名：fastapi\n岗位原句：使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。\n建议：核对已有记录并补齐：一个带输入校验和失败响应的接口及测试。\n\n- 来源：技术/FastAPI服务化\\.md\n  分块：f3d6577c8820dac2cc92；标题：FastAPI服务化\n  摘录：\\# FastAPI服务化  FastAPI 提供健康检查、索引重建、搜索、问答和按 ID 读取笔记接口。Swagger 用来核对接口，本地页面承担日常查询入口。  阻塞的文件扫描与 JSON 持久化放到工作线程，避免占用事件循环。访问日志只记录路径、状态、耗时和来源数量，不记录问题、笔记正文或回答内容。\n- 来源：项目/个人知识库\\.md\n  分块：f32a2f29d913eea10efc；标题：方案组成\n  摘录： 扫描流程见 \\[\\[RAG检索流程\\]\\]，向量模型选择见 \\[\\[Embedding选择\\]\\]，Agent 边界见 \\[\\[LangChain工具调用\\]\\]。API 使用 \\[\\[FastAPI服务化\\]\\]，回答可信度依赖 \\[\\[模型幻觉约束\\]\\]。  \\#\\# 设计判断  第一版使用 JSON 保存可再生成索引，但查询阶段全部在内存完成。数据量增加后按 \\[\\[向量索引迁移\\]\\] 替换底层存储。\n- 来源：项目/项目复盘\\.md\n  分块：f9be3ea37e261d7e773b；标题：项目复盘\n  摘录：。真正需要先验证的是：扫描是否稳定、检索是否有来源、来源能否回到原笔记。  因此 \\[\\[个人知识库\\]\\] 第一阶段不做 Obsidian 插件，也不做自动编辑。用 FastAPI 页面验证查询闭环，用 Obsidian URI 返回原工作区。下次复盘使用 \\[\\[每周复盘模板\\]\\]。\n\n## RAG\n\n状态：找到相关资料\n命中别名：rag\n岗位原句：使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。\n建议：核对已有记录并补齐：问题—来源片段—回答的评测案例。\n\n- 来源：待办/知识库下一步\\.md\n  分块：a751ef5f4d3f5cd76540；标题：知识库下一步\n  摘录：\\# 知识库下一步  \\- 用公开示例 Vault 验证 \\[\\[RAG检索流程\\]\\]。 \\- 检查 \\[\\[模型幻觉约束\\]\\] 是否覆盖无证据回答。 \\- 记录真实 bge\\-m3 召回结果，不预设效果数字。 \\- 数据规模明显增长后再评估 \\[\\[向量索引迁移\\]\\]。 \\- 所有内容编辑继续在 Obsidian 中完成。\n- 来源：技术/Embedding选择\\.md\n  分块：92e6975e931f1d194571；标题：Embedding选择\n  摘录：衡，而且可以通过 OpenAI\\-compatible 接口与应用解耦。  单元测试不调用真实模型，而是注入确定性的 Fake Embedder。这可以验证 \\[\\[RAG检索流程\\]\\]，但不能替代真实语料上的召回率评测。\n- 来源：技术/向量索引迁移\\.md\n  分块：8142d3257927d3955db4；标题：向量索引迁移\n  摘录：调用依赖 Retriever 协议，而不是具体 JSON 字段。未来迁移 pgvector 时保留搜索结果模型和 API 合同，只替换索引实现。背景流程见 \\[\\[RAG检索流程\\]\\]。\n\n## Embedding\n\n状态：找到相关资料\n命中别名：embedding\n岗位原句：使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。\n建议：核对已有记录并补齐：同集检索对照和实验条件。\n\n- 来源：复盘/2026年第36周\\.md\n  分块：d3f03b89bcdbf7b09f25；标题：2026年第36周\n  摘录：年第36周  本周明确了 \\[\\[个人知识库\\]\\] 的只读边界：不替代 Obsidian 编辑，只解决搜索、问答、关联发现和原文定位。  已经确认的工程判断包括 \\[\\[Embedding选择\\]\\]、\\[\\[模型幻觉约束\\]\\] 和 \\[\\[向量索引迁移\\]\\]。下一步集中验证增量索引以及 Obsidian URI 的中文路径编码，任务见 \\[\\[知识库下一步\\]\\]。\n- 来源：技术/RAG检索流程\\.md\n  分块：39477f4c8da3ec45f7b5；标题：RAG检索流程\n  摘录：\\# RAG检索流程  索引流程为 Markdown 扫描、Frontmatter 解析、段落分块、Embedding 和向量持久化。查询时先计算问题向量，再使用余弦相似度选择相关 Chunk。  Chunk 必须携带标题、相对路径、标签和所属标题。回答时这些字段会变成结构化来源，并生成可点击的 Obsidian 地址。模型选择记录在 \\[\\[Embedding选择\\]\\]，可信度约束见 \\[\\[模型幻觉约束\\]\\]。\n- 来源：项目/个人知识库\\.md\n  分块：f32a2f29d913eea10efc；标题：方案组成\n  摘录：bsidian 原有的文件结构和编辑体验。服务不接管写入，只返回建议和原笔记位置。  \\#\\# 方案组成  扫描流程见 \\[\\[RAG检索流程\\]\\]，向量模型选择见 \\[\\[Embedding选择\\]\\]，Agent 边界见 \\[\\[LangChain工具调用\\]\\]。API 使用 \\[\\[FastAPI服务化\\]\\]，回答可信度依赖 \\[\\[模型幻觉约束\\]\\]。  \\#\\# 设计判断  第一版使用 JSON 保存可再生成索引，但查询阶段全部在内存完成。数据量增加后按 \\[\\[向量索引迁移\\]\\] 替换底层存储。\n\n## Agent\n\n状态：找到相关资料\n命中别名：agent\n岗位原句：使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。\n建议：核对已有记录并补齐：工具调用参数与失败处理案例。\n\n- 来源：技术/LangChain工具调用\\.md\n  分块：7775d0ed636aa633658a；标题：LangChain工具调用\n  摘录：\\# LangChain工具调用  Agent 只获得三个工具：检索笔记、读取指定笔记、查找关联笔记。工具参数不能传入绝对路径，读取范围由 Vault 根目录限制。  每次请求单独收集工具证据，避免并发问答共享来源。若 Agent 没有调用工具，系统会丢弃模型给出的知识结论并返回无法确认。设计依据见 \\[\\[模型幻觉约束\\]\\]。\n- 来源：技术/模型幻觉约束\\.md\n  分块：cbe8ef48db5834a3cceb；标题：模型幻觉约束\n  摘录：示词不能消除模型幻觉。个人知识库回答必须绑定工具证据：检索工具返回真实笔记片段，API 独立返回结构化来源，用户可以回到 Obsidian 原文核对。  如果 Agent 没有调用工具，或检索不到证据，系统拒绝把模型文本当作知识库答案。笔记内容也被视为不可信数据，不能覆盖系统指令。这一策略与 \\[\\[LangChain工具调用\\]\\] 配合使用。\n- 来源：项目/个人知识库\\.md\n  分块：f32a2f29d913eea10efc；标题：方案组成\n  摘录：构和编辑体验。服务不接管写入，只返回建议和原笔记位置。  \\#\\# 方案组成  扫描流程见 \\[\\[RAG检索流程\\]\\]，向量模型选择见 \\[\\[Embedding选择\\]\\]，Agent 边界见 \\[\\[LangChain工具调用\\]\\]。API 使用 \\[\\[FastAPI服务化\\]\\]，回答可信度依赖 \\[\\[模型幻觉约束\\]\\]。  \\#\\# 设计判断  第一版使用 JSON 保存可再生成索引，但查询阶段全部在内存完成。数据量增加后按 \\[\\[向量索引迁移\\]\\] 替换底层存储。\n\n## 使用边界\n\n- 仅提取 12 项有限词表关键词，不能完整理解岗位要求；请核对原句，尤其是否定或可选要求。\n- 关键词资料命中不等于个人能力、项目经历或录用概率；未找到记录不代表不会。\n- 结果未经过人工核验；建议来自 keyword\\_evidence\\_v1 固定模板。\n"
+}

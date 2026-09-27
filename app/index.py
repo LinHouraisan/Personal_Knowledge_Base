@@ -2,10 +2,11 @@ import asyncio
 import json
 import math
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import ValidationError
 
+from app.lexical import lexical_score
 from app.models import IndexStats, NoteChunk, SearchHit
 from app.vault import chunk_note, scan_vault
 
@@ -37,7 +38,8 @@ def _cosine(left: list[float], right: list[float]) -> float:
 
 
 class JsonVectorIndex:
-    def __init__(self, vault_path: Path, index_path: Path, embedder: Embedder):
+    def __init__(self, vault_path: Path, index_path: Path, embedder: Embedder, *, mode: Literal["vector", "hybrid"] = "vector"):
+        self.mode = mode
         self.vault_path = vault_path
         self.index_path = index_path
         self.embedder = embedder
@@ -141,6 +143,20 @@ class JsonVectorIndex:
             SearchHit(chunk=chunk, score=_cosine(query_vector, vector))
             for chunk, vector in self._records
         ]
-        ranked = [hit for hit in ranked if hit.score > 0]
-        ranked.sort(key=lambda hit: (-hit.score, hit.chunk.relative_path, hit.chunk.id))
-        return ranked[:top_k]
+        vector_ranked = [hit for hit in ranked if hit.score > 0]
+        vector_ranked.sort(key=lambda hit: (-hit.score, hit.chunk.relative_path, hit.chunk.id))
+        if self.mode == "vector":
+            return vector_ranked[:top_k]
+
+        # Keep cosine in SearchHit.score; RRF is an internal ordering key only.
+        unique = {hit.chunk.id: hit for hit in ranked}
+        vector_ranked = list({hit.chunk.id: hit for hit in vector_ranked}.values())[:20]
+        lexical = [(lexical_score(query, hit.chunk), hit) for hit in unique.values()]
+        lexical = [(score, hit) for score, hit in lexical if score > 0]
+        lexical.sort(key=lambda item: (-item[0], item[1].chunk.relative_path, item[1].chunk.id))
+        fused: dict[str, float] = {}
+        for candidates in (vector_ranked, [hit for _, hit in lexical[:20]]):
+            for rank, hit in enumerate(candidates, 1):
+                fused[hit.chunk.id] = fused.get(hit.chunk.id, 0.0) + 1 / (60 + rank)
+        ordered = sorted(fused, key=lambda key: (-fused[key], unique[key].chunk.relative_path, key))
+        return [unique[key] for key in ordered[:top_k]]

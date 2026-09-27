@@ -1,0 +1,60 @@
+{
+  "report": {
+    "method": "keyword_evidence_v1",
+    "requirements": [
+      {
+        "skill_id": "python",
+        "label": "Python",
+        "matched_terms": [
+          "python"
+        ],
+        "jd_excerpt": "使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。",
+        "status": "not_recorded",
+        "sources": [],
+        "suggested_action": "可通过以下交付物补充记录：一段可运行的数据处理脚本及输入输出。"
+      },
+      {
+        "skill_id": "sql",
+        "label": "SQL",
+        "matched_terms": [
+          "sql"
+        ],
+        "jd_excerpt": "使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。",
+        "status": "not_recorded",
+        "sources": [],
+        "suggested_action": "可通过以下交付物补充记录：一组查询及执行结果。"
+      },
+      {
+        "skill_id": "etl",
+        "label": "ETL",
+        "matched_terms": [
+          "etl"
+        ],
+        "jd_excerpt": "使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。",
+        "status": "not_recorded",
+        "sources": [],
+        "suggested_action": "可通过以下交付物补充记录：清洗、去重及重复运行结果。"
+      },
+      {
+        "skill_id": "data_labeling",
+        "label": "文本数据标注",
+        "matched_terms": [
+          "数据标注"
+        ],
+        "jd_excerpt": "使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。",
+        "status": "not_recorded",
+        "sources": [],
+        "suggested_action": "可通过以下交付物补充记录：标签说明、样例和复核记录。"
+      }
+    ],
+    "recognized_count": 4,
+    "with_evidence_count": 0,
+    "coverage_ratio": 0.0,
+    "limitations": [
+      "仅提取 12 项有限词表关键词，不能完整理解岗位要求；请核对原句，尤其是否定或可选要求。",
+      "关键词资料命中不等于个人能力、项目经历或录用概率；未找到记录不代表不会。",
+      "结果未经过人工核验；建议来自 keyword_evidence_v1 固定模板。"
+    ]
+  },
+  "markdown": "# 岗位关键词证据对照\n\n方法：keyword_evidence_v1（规则匹配，无模型评审）\n已识别关键词的资料覆盖率：0.0%；资料命中 0/4\n\n## Python\n\n状态：当前知识库未找到相关记录\n命中别名：python\n岗位原句：使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。\n建议：可通过以下交付物补充记录：一段可运行的数据处理脚本及输入输出。\n\n\n## SQL\n\n状态：当前知识库未找到相关记录\n命中别名：sql\n岗位原句：使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。\n建议：可通过以下交付物补充记录：一组查询及执行结果。\n\n\n## ETL\n\n状态：当前知识库未找到相关记录\n命中别名：etl\n岗位原句：使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。\n建议：可通过以下交付物补充记录：清洗、去重及重复运行结果。\n\n\n## 文本数据标注\n\n状态：当前知识库未找到相关记录\n命中别名：数据标注\n岗位原句：使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。\n建议：可通过以下交付物补充记录：标签说明、样例和复核记录。\n\n\n## 使用边界\n\n- 仅提取 12 项有限词表关键词，不能完整理解岗位要求；请核对原句，尤其是否定或可选要求。\n- 关键词资料命中不等于个人能力、项目经历或录用概率；未找到记录不代表不会。\n- 结果未经过人工核验；建议来自 keyword\\_evidence\\_v1 固定模板。\n"
+}

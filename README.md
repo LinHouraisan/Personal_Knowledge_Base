@@ -4,6 +4,7 @@
 
 请先阅读 [项目当前状态](docs/CURRENT-STATUS.md)，区分已实现能力、已完成训练、历史评测和未验证效果。
 
+- [秋招离线演示、岗位证据报告与面试材料](docs/portfolio/autumn-2026/README.md)
 - [接口集合、Excel 测试表与执行记录](docs/validation/api/README.md)
 
 这是一个面向 Obsidian Markdown Vault 的只读知识检索与问答服务。它解析 Frontmatter、标签和 `[[双向链接]]`，建立可增量更新的向量索引，通过 LangChain Agent 检索证据，并让用户从来源卡片直接回到 Obsidian 原笔记。

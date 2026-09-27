@@ -29,6 +29,27 @@
     .open { color: #765727; font-weight: 700; text-decoration: none; }
     .open:hover { text-decoration: underline; }
     @media (max-width: 680px) { .query { grid-template-columns: 1fr 1fr; } input { grid-column: 1 / -1; } }
+    .mode-banner { padding: 12px 16px; border: 1px solid #b4c2b3; border-radius: 12px; background: #edf4eb; color: #365039; font-size: 14px; }
+    .career { margin-top: 24px; }
+    .career h2 { font-size: clamp(22px, 4vw, 30px); margin: 12px 0; }
+    .career > p, .limitations, .vocabulary { color: #62645f; line-height: 1.75; }
+    label { display: block; font-weight: 700; margin: 18px 0 8px; }
+    textarea { width: 100%; resize: vertical; padding: 14px; border: 1px solid #c9c1b5; border-radius: 10px; font: inherit; line-height: 1.7; background: #fff; }
+    .examples, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0; }
+    .examples button { padding: 9px 12px; font-size: 13px; background: #eee8dc; color: #69502e; }
+    .message { min-height: 20px; line-height: 1.6; color: #6e5540; }
+    .source h3 { margin: 0 0 5px; font-size: 17px; }
+    .source .message:empty { display: none; }
+    .requirement { border-top: 1px solid #d8d1c5; padding: 16px 0; overflow-wrap: anywhere; }
+    .requirement h3 { margin: 4px 0; }
+    .evidence-state { font-weight: 700; color: #3f6048; }
+    .evidence { display: grid; gap: 10px; }
+    .path, .excerpt { overflow-wrap: anywhere; }
+    dialog { border: 1px solid #d8d1c5; border-radius: 16px; width: min(800px, calc(100% - 24px)); max-height: 85vh; padding: 22px; }
+    dialog::backdrop { background: #20211f80; }
+    dialog .actions { justify-content: space-between; }
+    #note-content { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.8; }
+    @media (max-width: 680px) { main { margin: 24px auto; } .panel { padding: 16px; } .actions button { padding: 10px 12px; } }
   </style>
 </head>
 <body>
@@ -37,6 +58,7 @@
       <div class="eyebrow">Read only knowledge workspace</div>
       <h1>Obsidian 个人知识库</h1>
       <p>检索 Markdown、双向链接与标签。回答只提供建议，所有修改仍在 Obsidian 中完成。</p>
+      <div id="mode-banner" class="mode-banner">正在确认运行方式…</div>
     </header>
     <section class="panel">
       <div class="query">
@@ -48,71 +70,189 @@
       <div id="answer"></div>
       <div id="sources"></div>
     </section>
+    <section class="panel career" aria-labelledby="career-heading">
+      <div class="eyebrow">Keyword evidence</div>
+      <h2 id="career-heading">岗位要求，回到资料中找证据</h2>
+      <p>提取支持的关键词，对照笔记正文，整理可补充的实践记录。资料覆盖率不代表能力匹配度。</p>
+      <label for="jd">岗位描述</label>
+      <textarea id="jd" rows="5" maxlength="12000" placeholder="粘贴岗位描述，或选择下方公开虚构示例"></textarea>
+      <div class="examples" aria-label="公开虚构岗位示例">
+        <button type="button" class="secondary" data-jd="使用 Python、FastAPI 开发 RAG 应用，了解 Embedding 和 Agent。">AI 开发示例</button>
+        <button type="button" class="secondary" data-jd="使用 React、TypeScript 开发页面，能编写 SQL 并使用 PostgreSQL。">前后端示例</button>
+        <button type="button" class="secondary" data-jd="使用 Python 和 SQL 完成 ETL，并整理文本数据标注样例。">数据处理示例</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="analyze">对照资料证据</button>
+        <button type="button" id="download-report" class="secondary" disabled>下载 Markdown</button>
+      </div>
+      <p class="message" id="career-status" aria-live="polite"></p>
+      <div id="career-results"></div>
+      <details class="vocabulary">
+        <summary>首版支持的 12 项关键词</summary>
+        <p>Python、FastAPI、React、TypeScript、SQL、PostgreSQL、RAG、Embedding、Agent、LoRA、ETL、文本数据标注。</p>
+        <p>仅核对关键词及资料，不推断熟练度；否定、可选要求需要结合原句理解。输入只在当前页面保留，刷新即丢弃。</p>
+      </details>
+    </section>
+    <dialog id="note-dialog" aria-labelledby="note-title">
+      <div class="actions"><h2 id="note-title"></h2><button type="button" id="close-note">关闭原文</button></div>
+      <pre id="note-content"></pre>
+    </dialog>
   </main>
   <script>
     const query = document.querySelector("#query");
     const status = document.querySelector("#status");
     const answer = document.querySelector("#answer");
     const sources = document.querySelector("#sources");
-    const buttons = [...document.querySelectorAll("button")];
+    const queryButtons = [document.querySelector("#search"), document.querySelector("#ask")];
+    const jd = document.querySelector("#jd");
+    const careerStatus = document.querySelector("#career-status");
+    const careerResults = document.querySelector("#career-results");
+    const download = document.querySelector("#download-report");
+    const careerControls = [jd, document.querySelector("#analyze"), ...document.querySelectorAll("[data-jd]")];
+    let reportMarkdown = "";
 
-    function setBusy(value, message = "") {
-      buttons.forEach(button => button.disabled = value);
-      status.textContent = message;
+    function node(tag, text, className) {
+      const element = document.createElement(tag);
+      if (text !== undefined) element.textContent = text;
+      if (className) element.className = className;
+      return element;
     }
 
-    function renderSources(items) {
-      sources.replaceChildren();
+    async function responseBody(response) {
+      const body = await response.json();
+      if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : "输入不符合要求或服务暂不可用。");
+      return body;
+    }
+
+    function renderSources(items, target = sources) {
+      target.replaceChildren();
       for (const item of items) {
-        const card = document.createElement("article");
-        card.className = "source";
-        const title = document.createElement("h2");
-        title.textContent = item.title;
-        const path = document.createElement("div");
-        path.className = "path";
-        path.textContent = item.relative_path;
-        const excerpt = document.createElement("p");
-        excerpt.className = "excerpt";
-        excerpt.textContent = item.excerpt;
-        const open = document.createElement("a");
-        open.className = "open";
-        open.textContent = "在 Obsidian 中打开";
+        const card = node("article", undefined, "source");
+        card.append(node("h3", item.title), node("div", item.relative_path, "path"));
+        if (item.heading) card.append(node("div", "标题：" + item.heading, "path"));
+        if (item.chunk_id) card.append(node("div", "分块：" + item.chunk_id, "path"));
+        card.append(node("p", item.excerpt, "excerpt"));
+        const open = node("a", "在 Obsidian 中打开", "open");
         if (String(item.obsidian_uri).startsWith("obsidian://open?")) open.href = item.obsidian_uri;
-        card.append(title, path, excerpt, open);
-        sources.append(card);
+        const view = node("button", "查看原文", "secondary");
+        view.type = "button";
+        const noteStatus = node("p", "", "message");
+        view.addEventListener("click", async () => {
+          view.disabled = true;
+          noteStatus.textContent = "正在读取原文…";
+          try {
+            const body = await responseBody(await fetch("/v1/notes/" + encodeURIComponent(item.note_id)));
+            document.querySelector("#note-title").textContent = body.title;
+            document.querySelector("#note-content").textContent = body.content;
+            document.querySelector("#note-dialog").showModal();
+            noteStatus.textContent = "";
+          } catch (_) {
+            noteStatus.textContent = "原文暂不可用，请稍后重试。";
+          } finally { view.disabled = false; }
+        });
+        const actions = node("div", undefined, "actions");
+        actions.append(open, view);
+        card.append(actions, noteStatus);
+        target.append(card);
       }
     }
 
     async function run(mode) {
       const text = query.value.trim();
-      if (!text) return query.focus();
-      setBusy(true, mode === "search" ? "正在检索…" : "Agent 正在核对来源…");
+      if (!text) { status.textContent = "请先输入问题。"; return query.focus(); }
+      queryButtons.forEach(button => button.disabled = true);
+      query.disabled = true;
+      status.textContent = mode === "search" ? "正在检索…" : "正在读取回答与来源…";
       answer.style.display = "none";
+      sources.replaceChildren();
       try {
         const response = mode === "search"
-          ? await fetch(`/v1/search?q=${encodeURIComponent(text)}&top_k=5`)
+          ? await fetch("/v1/search?q=" + encodeURIComponent(text) + "&top_k=5")
           : await fetch("/v1/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text }) });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.detail || "请求失败");
+        const body = await responseBody(response);
         if (mode === "chat") {
           answer.textContent = body.answer;
           answer.style.display = "block";
         }
         renderSources(body.sources || []);
-        status.textContent = `找到 ${(body.sources || []).length} 条来源`;
+        status.textContent = "找到 " + (body.sources || []).length + " 条来源";
       } catch (error) {
-        status.textContent = error.message;
-        sources.replaceChildren();
+        status.textContent = "请求未完成：" + error.message;
       } finally {
-        setBusy(false, status.textContent);
+        queryButtons.forEach(button => button.disabled = false);
+        query.disabled = false;
       }
+    }
+
+    function resetCareer() {
+      reportMarkdown = "";
+      download.disabled = true;
+      careerResults.replaceChildren();
+      careerStatus.textContent = "";
+    }
+
+    async function analyze() {
+      const text = jd.value.trim();
+      resetCareer();
+      if (!text) { careerStatus.textContent = "请先填写岗位描述，或选择一个公开示例。"; return jd.focus(); }
+      if (text.length > 12000) { careerStatus.textContent = "岗位描述不能超过 12000 字符。"; return; }
+      careerControls.forEach(control => control.disabled = true);
+      careerStatus.textContent = "正在对照关键词与资料证据…";
+      try {
+        const body = await responseBody(await fetch("/v1/career/report", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jd_text: text })
+        }));
+        const report = body.report;
+        reportMarkdown = body.markdown;
+        download.disabled = false;
+        const coverage = report.coverage_ratio === null ? "不适用" : (report.coverage_ratio * 100).toFixed(1) + "%";
+        careerStatus.textContent = "已识别 " + report.recognized_count + " 项 · 找到资料 " + report.with_evidence_count +
+          " 项 · 已识别关键词的资料覆盖率：" + coverage;
+        if (!report.requirements.length) careerResults.append(node("p", "未识别到支持的关键词，请查看下方有限词表说明。"));
+        for (const item of report.requirements) {
+          const card = node("article", undefined, "requirement");
+          card.append(node("h3", item.label), node("p", item.status === "evidence_found" ? "找到相关资料（不代表熟练掌握）" : "当前知识库未找到相关记录", "evidence-state"));
+          card.append(node("p", "命中别名：" + item.matched_terms.join("、")), node("p", "岗位原句：" + item.jd_excerpt));
+          card.append(node("p", item.suggested_action));
+          const evidence = node("div", undefined, "evidence");
+          renderSources(item.sources, evidence);
+          card.append(evidence);
+          careerResults.append(card);
+        }
+        const limits = node("ul", undefined, "limitations");
+        report.limitations.forEach(text => limits.append(node("li", text)));
+        careerResults.append(limits);
+      } catch (error) {
+        careerStatus.textContent = "分析未完成：" + error.message + " 请稍后重试。";
+      } finally { careerControls.forEach(control => control.disabled = false); }
     }
 
     document.querySelector("#search").addEventListener("click", () => run("search"));
     document.querySelector("#ask").addEventListener("click", () => run("chat"));
     query.addEventListener("keydown", event => { if (event.key === "Enter") run("search"); });
-    fetch("/health").then(response => response.json()).then(body => {
-      status.textContent = `${body.vault_name} · ${body.notes} 篇笔记 · ${body.index_ready ? "索引就绪" : "等待建索引"}`;
+    document.querySelector("#analyze").addEventListener("click", analyze);
+    jd.addEventListener("input", resetCareer);
+    document.querySelectorAll("[data-jd]").forEach(button => button.addEventListener("click", () => {
+      jd.value = button.dataset.jd;
+      resetCareer();
+    }));
+    download.addEventListener("click", () => {
+      if (!reportMarkdown) return;
+      const url = URL.createObjectURL(new Blob([reportMarkdown], { type: "text/markdown;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = "career-evidence.md";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    document.querySelector("#close-note").addEventListener("click", () => document.querySelector("#note-dialog").close());
+    fetch("/v1/capabilities").then(responseBody).then(body => {
+      document.querySelector("#mode-banner").textContent = body.demo
+        ? "公开虚构数据 · 词法检索 · 无生成模型"
+        : "当前配置知识库 · 问答使用配置模型 · 岗位对照使用规则匹配";
+      if (body.demo) document.querySelector("#ask").textContent = "查看证据摘录";
+    }).catch(() => { document.querySelector("#mode-banner").textContent = "运行方式暂未确认，请检查服务状态。"; });
+    fetch("/health").then(responseBody).then(body => {
+      status.textContent = body.vault_name + " · " + body.notes + " 篇笔记 · " + (body.index_ready ? "索引就绪" : "等待建索引");
     }).catch(() => { status.textContent = "服务状态暂不可用"; });
   </script>
 </body>
