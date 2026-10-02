@@ -1,13 +1,15 @@
+> 历史材料：以下为 2026 年 9 月的岗位对照演示。当前前台已调整为个人知识库，使用方法见 [使用说明](../../README.md)。原有岗位对照接口与生成报告的代码仍保留。
+
 # 个人知识库秋招演示入口
 
 本轮新增岗位关键词证据对照、可选混合检索及无密钥离线演示。复用 FastAPI、Pydantic、现有检索接口和原生 HTML/JavaScript，没有新增运行时依赖。
 
 ## 直接查看报告
 
-- [AI 应用开发](../../../artifacts/portfolio/autumn-2026/ai-development.md)：5 项识别，4 项有资料。
-- [前后端开发](../../../artifacts/portfolio/autumn-2026/fullstack.md)：4 项识别，1 项有资料。
-- [数据处理与标注](../../../artifacts/portfolio/autumn-2026/data-workflow.md)：4 项识别，0 项有资料。
-- [原始执行结果](../../../artifacts/portfolio/autumn-2026/run.json)
+- [AI 应用开发](reports/ai-development.md)：5 项识别，4 项有资料。
+- [前后端开发](reports/fullstack.md)：4 项识别，1 项有资料。
+- [数据处理与标注](reports/data-workflow.md)：4 项识别，0 项有资料。
+- [原始执行结果](reports/run.json)
 - [实际验收记录](acceptance.md)
 - [面试说明与简历事实](interview-notes.md)
 
@@ -28,7 +30,7 @@
 自动重新生成三个场景的报告：
 
 ~~~powershell
-.\.venv\Scripts\python.exe -m tools.autumn_demo_report --out artifacts/portfolio/autumn-2026
+.\.venv\Scripts\python.exe -m tools.autumn_demo_report --out docs/portfolio/autumn-2026/reports
 ~~~
 
 退出 0 表示三个场景通过合同核对；失败返回非零并保留场景状态。run.json 中 model_evaluation=not_run，不填写虚构准确率。

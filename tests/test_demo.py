@@ -34,7 +34,7 @@ def test_demo_end_to_end_without_clients_network_or_vault_writes(monkeypatch, tm
         assert client.get("/v1/capabilities").json() == {
             "demo": True, "answer_mode": "extractive", "vault_origin": "synthetic"
         }
-        assert client.get("/health").json()["notes"] == 16
+        assert client.get("/health").json()["notes"] == len(list(vault.rglob("*.md")))
         sources = client.get("/v1/search", params={"q": "RAG"}).json()["sources"]
         assert sources and sources[0]["score"] is None
         assert client.get("/v1/notes/" + sources[0]["note_id"]).status_code == 200

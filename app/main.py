@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
@@ -13,6 +14,7 @@ from app.career import CareerRequest, build_career_report, career_report_markdow
 from app.config import Settings, get_settings
 from app.index import JsonVectorIndex
 from app.knowledge import KnowledgeService
+from app.reflection import ReflectionRequest, build_reflection, workspace
 
 
 logger = logging.getLogger("obsidian_knowledge")
@@ -84,6 +86,19 @@ def create_app(
             int((time.perf_counter() - started) * 1000),
         )
         return response
+
+    application.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
+    @application.get("/v1/workspace")
+    async def personal_workspace():
+        return workspace(application.state.knowledge)
+
+    @application.post("/v1/reflection")
+    async def reflection(request: ReflectionRequest):
+        try:
+            return build_reflection(application.state.knowledge, request)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
 
     @application.get("/v1/capabilities")
     async def capabilities():

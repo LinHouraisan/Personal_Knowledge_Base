@@ -10,6 +10,8 @@ data/
 !training/query_planner/data/
 training/query_planner/data/*
 !training/query_planner/data/.gitkeep
+!training/artifacts/**/data/
+!training/artifacts/**/data/**
 training/query_planner/saves/
 training/query_planner/logs/
 private_vault/
@@ -18,7 +20,7 @@ private_vault/
 .codex_artifacts/
 .superpowers/
 # Duplicate training checkpoints; final artifacts remain tracked
-artifacts/training/**/checkpoint-*/
-artifacts/training/**/checkpoints/
+training/artifacts/**/checkpoint-*/
+training/artifacts/**/checkpoints/
 .env.*
 !.env.example

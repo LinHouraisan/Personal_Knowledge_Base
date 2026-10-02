@@ -48,6 +48,9 @@ class KnowledgeService:
         self._notes_by_path = {note.relative_path: note for note in notes}
         self._notes_by_id = {note.id: note for note in notes}
 
+    def list_notes(self) -> list[VaultNote]:
+        return list(self._notes_by_id.values())
+
     def status(self) -> KnowledgeStatus:
         return KnowledgeStatus(
             vault_name=self.vault_name,
