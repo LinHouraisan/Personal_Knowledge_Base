@@ -17,6 +17,9 @@ def demo_ready(url):
             capabilities = json.load(response)
         if capabilities.get("demo") is not True:
             return False
+        with urlopen(url + "v1/ai/connection", timeout=1) as response:
+            if json.load(response).get("available") is not True:
+                return False
         with urlopen(url + "v1/workspace", timeout=1) as response:
             return isinstance(json.load(response).get("goals"), list)
     except (OSError, URLError, ValueError):
@@ -36,7 +39,7 @@ def ensure_demo(port=8011):
     log_dir = root / "data"
     log_dir.mkdir(exist_ok=True)
     with (log_dir / "demo.log").open("ab") as log:
-        process = subprocess.Popen([sys.executable, "-B", "-m", "app.demo", "--port", str(port)],
+        process = subprocess.Popen([sys.executable, "-B", "-m", "app.demo", "--ai", "--port", str(port)],
                                    cwd=root, stdout=log, stderr=log,
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     try:

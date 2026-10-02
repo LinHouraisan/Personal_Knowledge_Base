@@ -4,6 +4,7 @@ from pathlib import Path
 import uvicorn
 
 from app.config import Settings
+from app.deepseek import DeepSeekAssistant
 from app.knowledge import KnowledgeService
 from app.lexical import LexicalRetriever
 from app.main import create_app
@@ -21,7 +22,7 @@ class ExtractiveDemoAgent:
         return AgentAnswer(status="answered" if sources else "no_evidence", answer=text, sources=sources)
 
 
-def create_demo_app():
+def create_demo_app(*, ai=None):
     root = Path(__file__).resolve().parents[1]
     settings = Settings(
         _env_file=None, vault_path=root / "sample_vault", vault_name="公开虚构演示知识库",
@@ -29,14 +30,16 @@ def create_demo_app():
         planner_enabled=False, retrieval_mode="vector",
     )
     service = KnowledgeService(settings.vault_path, settings.vault_name, LexicalRetriever(settings.vault_path))
-    return create_app(settings, service, ExtractiveDemoAgent(service), demo_mode=True)
+    return create_app(settings, service, ExtractiveDemoAgent(service), demo_mode=True, ai=ai)
 
 
 def main():
     parser = argparse.ArgumentParser(description="公开虚构资料的离线词法/摘录演示，不调用生成模型")
     parser.add_argument("--port", type=int, default=8011)
+    parser.add_argument("--ai", action="store_true", help="允许在本机页面配置 DeepSeek；仍只读取公开虚构笔记")
     args = parser.parse_args()
-    uvicorn.run(create_demo_app(), host="127.0.0.1", port=args.port, access_log=False)
+    ai = DeepSeekAssistant(Path(__file__).resolve().parents[1] / ".env") if args.ai else None
+    uvicorn.run(create_demo_app(ai=ai), host="127.0.0.1", port=args.port, access_log=False)
 
 
 if __name__ == "__main__":

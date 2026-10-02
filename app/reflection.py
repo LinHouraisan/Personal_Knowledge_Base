@@ -75,7 +75,7 @@ def entries(note: VaultNote):
                 yield section, subject if separator else text, detail if separator else text, text
 
 
-def build_reflection(service: KnowledgeService, request: ReflectionRequest) -> dict:
+def select_reflection_notes(service: KnowledgeService, request: ReflectionRequest):
     notes = service.list_notes()
     goal = None
     topic = request.topic.strip()
@@ -107,6 +107,16 @@ def build_reflection(service: KnowledgeService, request: ReflectionRequest) -> d
         selected.append((recorded, note))
     selected.sort(key=lambda pair: (pair[0], pair[1].relative_path))
 
+    return goal, selected, warnings
+
+
+def build_reflection(service: KnowledgeService, request: ReflectionRequest) -> dict:
+    goal, selected, warnings = select_reflection_notes(service, request)
+    topic = goal["topic"] if goal else request.topic.strip()
+
+    unparsed = sum(not any(entries(note)) for _, note in selected)
+    if unparsed:
+        warnings.append(f"有 {unparsed} 篇自然段笔记未纳入离线整理；可切换 DeepSeek AI 阅读。")
     states, next_steps, history = {}, {}, {}
     for recorded, note in selected:
         for state, subject, detail, text in entries(note):
@@ -143,7 +153,7 @@ def build_reflection(service: KnowledgeService, request: ReflectionRequest) -> d
         warnings.append("行动来自所选时间范围内的笔记，按最近记录排列，最多三项；这是待你确认的建议。")
     return {"status": status, "mode": request.mode, "method": "explicit_note_rules",
             "title": "下一步，先把这几件事做实" if request.mode == "plan" else "把积累看清楚，再往前走",
-            "topic": topic, "notes_count": len(selected), "goal": goal,
+            "topic": topic, "notes_count": len(selected) - unparsed, "goal": goal,
             "period": {"start": request.start_date, "end": request.end_date},
             "sections": sections, "actions": actions, "warnings": warnings,
             "focus": request.focus}

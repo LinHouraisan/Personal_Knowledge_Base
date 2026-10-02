@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.agent import KnowledgeAgent, build_knowledge_agent
 from app.career import CareerRequest, build_career_report, career_report_markdown
 from app.config import Settings, get_settings
+from app.deepseek import DeepSeekAssistant, attach_ai_routes
 from app.index import JsonVectorIndex
 from app.knowledge import KnowledgeService
 from app.reflection import ReflectionRequest, build_reflection, workspace
@@ -30,6 +31,7 @@ def create_app(
     agent: KnowledgeAgent | None = None,
     *,
     demo_mode: bool = False,
+    ai: DeepSeekAssistant | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -162,6 +164,7 @@ def create_app(
     async def home():
         return FileResponse(Path(__file__).parent / "static" / "index.html")
 
+    attach_ai_routes(application, ai)
     return application
 
 

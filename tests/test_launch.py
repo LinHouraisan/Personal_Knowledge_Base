@@ -16,7 +16,7 @@ def test_launcher_starts_and_reuses_only_its_demo():
         with urlopen(url + "v1/capabilities", timeout=3) as response:
             assert json.load(response)["demo"] is True
         with urlopen(url + "v1/workspace", timeout=3) as response:
-            assert len(json.load(response)["goals"]) == 2
+            assert len(json.load(response)["goals"]) == 7
         second_url, second_process = ensure_demo(port)
         assert second_url == url and second_process is None
     finally:
